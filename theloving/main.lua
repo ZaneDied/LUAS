@@ -1,38 +1,48 @@
-local wln
-local wht
-local myFont
+local wln, wht
 local TaskBarStartx, TaskBarStarty, TaskBarEndw, TaskBarEndh
-local LightBarStartx, LightBarStarty
 local StartButx, StartButy, StartButw, StartButh
-local textHeight, textWidth
-local text = "MENU"
-local mycomp
 
+--- Text
+local MTHeight, MTWidth, MenuF
+local Mtext = "MENU"
+
+--- Image
+local mycomp, mycompw, mycomph
+local networking, networkingw, networkingh
 
 function love.load()
+
     love.graphics.setBackgroundColor(0,130/250,130/250)
     -- 970 to 97 to 10
     -- 570 to 57 to 10
     wln = love.graphics.getWidth() -- Window length
     wht = love.graphics.getHeight() -- Window Height
 
-    mycomp = love.graphics.newImage("w2k-computer.png")
+    --- Image
+    mycomp = love.graphics.newImage("w2k-computer-6.png") -- image computer
+    mycomph = mycomp:getHeight()
+    mycompw = mycomp:getWidth()
 
-    myFont = love.graphics.newFont(20)
-    love.graphics.setFont(myFont)
-    textWidth = myFont:getWidth(text)
-    textHeight = myFont:getHeight(text)
+    networking = love.graphics.newImage("w2k_network_computer-5.png")
+    networkingh = networking:getHeight()
+    networkingw = networking:getWidth()
 
 
+    ----
+    MenuF = love.graphics.newFont(15)
+    love.graphics.setFont(MenuF)
+    MTWidth = MenuF:getWidth(Mtext)
+    MTHeight = MenuF:getHeight(Mtext)
+    ----
+
+    ---- TaskBar
     TaskBarStartx = 0
     TaskBarStarty = wht - 50
     TaskBarEndw = wln
     TaskBarEndh = 50
+    ----
 
-    LightBarStartx = 0
-    LightBarStarty = TaskBarStarty + 3
-
-
+    --- Start Menu button
     StartButx = 10
     StartButy = TaskBarStarty + 7
     StartButw = 70
@@ -54,7 +64,7 @@ function love.draw()
     
     
     love.graphics.setColor(1, 1, 1) -- Draw the light bar (line)
-    love.graphics.line(LightBarStartx, LightBarStarty, TaskBarEndw, LightBarStarty)
+    love.graphics.line(0, TaskBarStarty + 3, TaskBarEndw, TaskBarStarty + 3)
     
    
     love.graphics.setColor(1, 1, 1) -- Draw the start button's border (line)
@@ -66,10 +76,14 @@ function love.draw()
     
 
     --love.graphics.print(text (string), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
-    love.graphics.print(text, StartButx + (StartButw / 2), StartButy + (StartButh / 2), 0, 1, 1, textWidth / 2, textHeight / 2)
+    love.graphics.print(Mtext, StartButx + (StartButw / 2), StartButy + (StartButh / 2), 0, 1, 1, MTWidth / 2, MTHeight / 2)
+    
+   
+    love.graphics.setColor(1, 1, 1)  --- Image drawing
+    love.graphics.draw(mycomp, 2, 2)
+    love.graphics.draw(networking, 2, mycomph + 2)
 
-    love.graphics.draw(mycomp, 100, 100)
+
 
     love.graphics.setColor(1, 1, 1)
-
 end
