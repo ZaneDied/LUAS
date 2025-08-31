@@ -9,6 +9,8 @@ local Mtext = "MENU"
 --- Image
 local mycomp, mycompw, mycomph
 local networking, networkingw, networkingh
+local inbox, inboxw, inboxh
+local briefcase, briefcasew, briefcaseh
 
 function love.load()
 
@@ -27,6 +29,13 @@ function love.load()
     networkingh = networking:getHeight()
     networkingw = networking:getWidth()
 
+    inbox = love.graphics.newImage("w98_mailbox_world-3.png")
+    inboxh = inbox:getHeight()
+    inboxw = inbox:getWidth()
+
+    briefcase = love.graphics.newImage("w98_briefcase-5.png")
+    briefcaseh = briefcase:getHeight()
+    briefcasew = briefcase:getWidth()
 
     ----
     MenuF = love.graphics.newFont(15)
@@ -80,9 +89,18 @@ function love.draw()
     
    
     love.graphics.setColor(1, 1, 1)  --- Image drawing
-    love.graphics.draw(mycomp, 2, 2)
-    love.graphics.draw(networking, 2, mycomph + 2)
 
+    --love.graphics.draw(drawable (Drawable), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
+    -- 51  
+    love.graphics.draw(mycomp, 51 / 2, mycomph, 0, 1, 1, mycompw / 2, mycomph / 2)
+    
+
+    love.graphics.draw(networking, 51 / 2, 0, 0, 1, 1, networkingw / 2, networkingh / 2)
+
+    love.graphics.draw(inbox, 51 / 2, 0, 0, 1, 1, inboxw / 2, inboxh / 2)
+
+    love.graphics.draw(briefcase, 51 / 2, 0, 0, 1, 1, briefcasew / 2, briefcaseh / 2)
+    
 
 
     love.graphics.setColor(1, 1, 1)
