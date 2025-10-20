@@ -5,7 +5,10 @@ local StartButx, StartButy, StartButw, StartButh
 --- Text
 local MTHeight, MTWidth, MenuF
 local Mtext = "MENU"
-
+local Btxt = "Buy"
+local Stxt = "Sell"
+local NeTxt = "Network"
+local Brtxt = "Briefcase"
 --- Image
 local mycomp, mycompw, mycomph
 local networking, networkingw, networkingh
@@ -44,6 +47,28 @@ function love.load()
     MTHeight = MenuF:getHeight(Mtext)
     ----
 
+    BuyF = love.graphics.newFont(14)
+    love.graphics.setFont(BuyF)
+    Btw = BuyF:getWidth(Btxt)
+
+    ----
+
+    SellF = love.graphics.newFont(14)
+    love.graphics.setFont(SellF)
+    Stw = SellF:getWidth(Stxt)
+
+    ----
+
+    NetF = love.graphics.newFont(14)
+    love.graphics.setFont(NetF)
+    NeTxtw = NetF:getWidth(NeTxt) 
+
+    ----
+
+    BriF = love.graphics.newFont(14)
+    love.graphics.setFont(BriF)
+    Brtxtw = BriF:getWidth(Brtxt)
+
     ---- TaskBar
     TaskBarStartx = 0
     TaskBarStarty = wht - 50
@@ -63,7 +88,7 @@ end
 function love.update(dt)
     mouseX = love.mouse.getX()
     mouseY = love.mouse.getY()
-    print( mouseX , mouseY)
+    print( mouseX , mouseY, mycomph + 12 + networkingh + networkingh)
 end
 
 function love.draw()
@@ -86,20 +111,24 @@ function love.draw()
 
     --love.graphics.print(text (string), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
     love.graphics.print(Mtext, StartButx + (StartButw / 2), StartButy + (StartButh / 2), 0, 1, 1, MTWidth / 2, MTHeight / 2)
-    
-   
+    love.graphics.print(Btxt, 40, 60, 0, 1, 1, Btw/2 )
+    love.graphics.print(Stxt, 40, 135, 0, 1, 1, Stw/2 )
+    love.graphics.print(NeTxt, 40, 210, 0, 1, 1, NeTxtw/2 )
+    love.graphics.print(Brtxt, 40, 280, 0, 1, 1, Brtxtw/2 )
+ 
     love.graphics.setColor(1, 1, 1)  --- Image drawing
 
     --love.graphics.draw(drawable (Drawable), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
     -- 51  
     --love.graphics.draw(mycomp, 51 / 2, mycomph, 0, 1, 1, mycompw / 2, mycomph / 2)
     love.graphics.draw(mycomp, 40, 10, 0, 1 , 1, mycompw/2)
+    
 
-    love.graphics.draw(networking, 40, mycomph + 25, 0, 1, 1, networkingw/2)
+    love.graphics.draw(networking, 40, 85, 0, 1, 1, networkingw/2)
 
-    --love.graphics.draw(inbox, 51 / 2, 0, 0, 1, 1, inboxw / 2, inboxh / 2)
+    love.graphics.draw(inbox, 40, 160, 0, 1, 1, inboxw / 2)
 
-    --love.graphics.draw(briefcase, 51 / 2, 0, 0, 1, 1, briefcasew / 2, briefcaseh / 2)
+    love.graphics.draw(briefcase, 40,230, 0, 1, 1, briefcasew / 2)
     
 
 
