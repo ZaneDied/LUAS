@@ -92,14 +92,14 @@ function love.draw()
 
     --love.graphics.draw(drawable (Drawable), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
     -- 51  
-    love.graphics.draw(mycomp, 51 / 2, mycomph, 0, 1, 1, mycompw / 2, mycomph / 2)
-    
+    --love.graphics.draw(mycomp, 51 / 2, mycomph, 0, 1, 1, mycompw / 2, mycomph / 2)
+    love.graphics.draw(mycomp, 40, 10, 0, 1 , 1, mycompw/2)
 
-    love.graphics.draw(networking, 51 / 2, 0, 0, 1, 1, networkingw / 2, networkingh / 2)
+    love.graphics.draw(networking, 40, mycomph + 25, 0, 1, 1, networkingw/2)
 
-    love.graphics.draw(inbox, 51 / 2, 0, 0, 1, 1, inboxw / 2, inboxh / 2)
+    --love.graphics.draw(inbox, 51 / 2, 0, 0, 1, 1, inboxw / 2, inboxh / 2)
 
-    love.graphics.draw(briefcase, 51 / 2, 0, 0, 1, 1, briefcasew / 2, briefcaseh / 2)
+    --love.graphics.draw(briefcase, 51 / 2, 0, 0, 1, 1, briefcasew / 2, briefcaseh / 2)
     
 
 
