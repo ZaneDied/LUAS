@@ -76,3 +76,4 @@ The game will feature four main panels:
 - Pause game / save game
 - Crash Game handling
 - leaderboard
+- bank
