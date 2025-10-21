@@ -76,9 +76,6 @@ The game will feature four main panels:
 - Pause game / save game
 - Crash Game handling
 - leaderboard
-<<<<<<< HEAD
 - toturial
 - Difficulty change
-=======
-- bank
->>>>>>> bb7fa5bfbccd89716941e73eb583e79ff57ae227
+-bank
