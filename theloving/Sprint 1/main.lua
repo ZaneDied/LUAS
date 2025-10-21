@@ -320,24 +320,6 @@ function love.draw()
     love.graphics.setColor(0, 0, 0)
     love.graphics.setFont(MenuF)
     love.graphics.print(Mtext, StartButx + (StartButw / 2), StartButy + (StartButh / 2), 0, 1, 1, MTWidth / 2, MTHeight / 2)
-<<<<<<< HEAD
-=======
-
- 
-    love.graphics.setColor(1, 1, 1)  --- Image drawing
-
-    love.graphics.print(Btxt, 40, 60, 0, 1, 1, Btw/2 )
-    love.graphics.print(Stxt, 40, 135, 0, 1, 1, Stw/2 )
-    love.graphics.print(NeTxt, 40, 210, 0, 1, 1, NeTxtw/2 )
-    love.graphics.print(Brtxt, 40, 280, 0, 1, 1, Brtxtw/2 )
-
-    --love.graphics.draw(drawable (Drawable), x (number), y (number), r (number), sx (number), sy (number), ox (number), oy (number), kx (number), ky (number))
-    -- 51  
-    --love.graphics.draw(mycomp, 51 / 2, mycomph, 0, 1, 1, mycompw / 2, mycomph / 2)
-    love.graphics.draw(mycomp, 40, 10, 0, 1 , 1, mycompw/2)
-
-
->>>>>>> bb7fa5bfbccd89716941e73eb583e79ff57ae227
     
     -- --- Draw Desktop Icons (No change)
     love.graphics.setFont(BuyF) 
