@@ -1,0 +1,72 @@
+// Variables and setup
+Define variables for window positions, sizes, images, and states
+Define a list for open windows
+Define schoolItems dictionary with item_name: [buy_value, sell_value, priority]
+
+// Utility functions
+Function getWindowTitle(key):
+    Return appropriate window title based on key
+
+Function findWindowIndexByName(appName):
+    Loop through openWindows:
+        If window name matches appName:
+            Return index
+    Return null
+
+Function bringToFront(index):
+    Remove window at index from openWindows
+    Insert it at the end of openWindows (front layer)
+
+Function getWindowDimensions(name):
+    Set default width and height
+    If name is "inbox":
+        Set larger width and height
+    Return width, height
+
+Function drawNetworkWindowContent(win):
+    Set starting position below title bar
+    Draw header row with columns: Item, Buy Value, Sell Value, Priority
+    Loop through schoolItems:
+        Draw each item row with alternating background colors
+        Display item name, buy value, sell value, priority in columns
+
+// love.load equivalent
+Initialize graphics, load images, set font sizes
+Set fixed positions for icons and taskbar elements
+Calculate font sizes for labels
+
+// love.update equivalent
+If dragging window:
+    Update window position based on mouse position minus offset
+
+// love.mousepressed equivalent
+If left-click:
+    Check if clicking on icons:
+        If icon clicked and window not open:
+            Open new window with icon name
+    Else if clicking on existing windows:
+        Check for close button click:
+            If clicked, close window
+        Else if clicked on title bar:
+            Bring window to front
+            Start dragging, store offset
+
+// love.mousereleased equivalent
+Stop dragging
+
+// Function to draw individual window
+Function drawWindow(win):
+    Get window size
+    Draw window background
+    Draw title bar
+    Draw window title text
+    Draw close button with 'X'
+    Draw window border
+    If window is "inbox", call drawNetworkWindowContent
+
+// love.draw equivalent
+Draw taskbar and start button
+Draw desktop icons and labels
+Loop through openWindows:
+    Call drawWindow for each window
+Reset color

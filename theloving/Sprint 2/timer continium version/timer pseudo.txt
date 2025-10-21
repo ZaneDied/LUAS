@@ -1,0 +1,92 @@
+// Variables and setup
+Define variables for window positions, sizes, images, and states
+Define a list for open windows
+Define a counter for window staggering
+Define game state variable ("selection" or "desktop")
+Define a timer variable for remaining time
+Define font for timer display
+Define list of selection buttons with positions and labels
+
+// love.load equivalent
+Initialize graphics, set background color
+Get window width and height
+Set up timer selection buttons centered on screen
+Load images for icons
+Set font sizes for UI elements
+Calculate positions for icons and taskbar buttons
+
+// love.update(dt)
+If game state is "desktop" and timer > 0:
+    Decrease timer by dt
+    If timer < 0, set timer to 0
+
+If in "desktop" mode and dragging window:
+    Update window position based on mouse position minus drag offset
+
+// love.mousepressed(x, y, button)
+If left mouse button:
+    If game state is "selection":
+        For each selection button:
+            If mouse clicked inside button:
+                Set timer based on button (minutes * 60)
+                Change game state to "desktop"
+                Exit
+
+    Else if game state is "desktop":
+        // Check icon clicks to open windows
+        For each icon:
+            If mouse clicked inside icon boundary and window not already open:
+                Increment window stagger counter
+                Create new window with position offset by stagger count
+                Add window to open Windows list
+                Exit
+                
+        // Check existing window interactions
+        For each open window from topmost to bottom:
+            Get window size
+            Calculate close button area
+            If mouse clicked inside close button area:
+                Remove window
+                Reset dragging if needed
+                Exit
+            Else if mouse clicked inside window title bar:
+                Bring window to front
+                Set dragging state and store offset
+                Exit
+
+// love.mousereleased(x, y, button)
+If left button released:
+    Stop dragging window
+
+// Function to draw a window
+Function drawWindow(win):
+    Get window size
+    Draw window background (light gray)
+    Draw title bar (blue)
+    Draw window title text (white)
+    Draw close button with 'X'
+    Draw window border
+    If window is "inbox":
+        Call function to draw network/spreadsheet content
+
+// love.draw
+If game state is "selection":
+    Draw full-screen background
+    Draw title "Select Game Duration"
+    For each selection button:
+        Draw button rectangle with border
+        Draw button label centered
+Else:
+    // Draw taskbar with start button
+    Draw taskbar rectangle
+    Draw start button with border and label
+    If timer > 0:
+        Draw countdown timer text near start button
+    
+    // Draw desktop icons and labels
+    Draw icons images at specified positions
+    Draw labels under icons
+    
+    // Draw all open windows
+    For each window in openWindows:
+        Call drawWindow(window)
