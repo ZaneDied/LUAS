@@ -1,0 +1,102 @@
+Initialize variables:
+  - Window positions, sizes, and assets (images, fonts)
+  - Game state ("selection" or "desktop")
+  - Timer variables (timeRemaining, batchTimer, supplyBatchInterval)
+  - Market data for items (price ranges, supply ranges, demands)
+  - Open windows list and dragging state
+
+On love.load:
+  - Set background color
+  - Load images and fonts
+  - Initialize market data with default current prices, supplies, projections
+  - Calculate initial market projections
+  - Setup UI elements (buttons, icons, window sizes)
+
+On love.update(dt):
+  - If game is in "desktop" state:
+    - Decrease timeRemaining
+    - Decrease batchTimer
+    - If batchTimer <= 0:
+      - Call refreshMarket() to update prices and supplies
+      - Reset batchTimer to supplyBatchInterval
+  - Handle window dragging if active
+
+On love.mousepressed(x, y, button):
+  - If in "selection" mode:
+    - Check if a timer button was clicked:
+      - Set timeRemaining accordingly
+      - Switch to "desktop" mode
+      - Call refreshMarket()
+  - Else if in "desktop" mode:
+    - Check if an icon was clicked:
+      - If so, open new window with staggered position
+    - Else check existing windows for:
+      - Close button click: remove window
+      - Title bar click: bring window to front and start drag
+
+On love.mousereleased:
+  - Stop dragging
+
+Function getWindowTitle(key):
+  - Return title based on window key
+
+Function findWindowIndexByName(appName):
+  - Return index of window with matching name
+
+Function bringToFront(index):
+  - Move window to top of openWindows list
+
+Function formatTime(seconds):
+  - Convert seconds to "MM:SS" string
+
+Function calculateNextMarketProjections():
+  - For each item:
+    - Randomize nextPrice within priceRange
+    - Set nextDemand
+    - Store supply range for next batch
+
+Function refreshMarket():
+  - For each item:
+    - Update currentPrice with projected price
+    - Add new supply batch within supply range
+  - Recalculate projections
+
+Function calculateColumnWidths():
+  - Measure max width needed for each column based on headers and data
+  - Return widths
+
+Function getWindowDimensions(name):
+  - Return width and height based on window type and content size
+
+Function drawNetworkWindowContent(win):
+  - Draw table headers with background
+  - Draw data rows:
+    - Alternating row colors
+    - Draw item name, current price, projected price, demand, supply
+    - Color projected price green if up, red if down, black if no change
+
+Function love.load():
+  - Initialize graphics, market data, UI elements
+
+Function love.update(dt):
+  - Handle timer countdown and market batch updates
+  - Handle window dragging
+
+Function love.mousepressed(x, y, button):
+  - Check for timer selection buttons:
+    - Set game timer and switch to "desktop"
+  - Else check for icon clicks:
+    - Open new window if icon clicked
+  - Else check for window interactions:
+    - Close window
+    - Bring window to front and start dragging
+
+Function love.mousereleased(x, y, button):
+  - Stop dragging
+
+Function love.draw():
+  - If in "selection" mode:
+    - Draw timer selection buttons
+  - Else if in "desktop" mode:
+    - Draw taskbar, start button, icons, timer
+    - Draw all open windows with their content

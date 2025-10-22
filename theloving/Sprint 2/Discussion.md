@@ -57,12 +57,51 @@ After implementing the item shop and expanding the network app, I will shift my 
 - Incorporate demand-based probability for buying items.
 
 # Existing Idea
-have a another list beside the item, and this will be its new price and it will be coloured red or green depending if it went up a price or went down, and this will change every minute, and another key idea is sell stragety, by trying to sell, its probability of selling is dependent on the demand priorty. Sell cycle and buy cycel will be for every minute on the game timer. 
-- Need to implement a range value dictionary control
-- Randomise the sell value every minute
-- Sell probility concept
 
-But firstly new price range must be added then buy then briefcase then sell concepts.
+- Add a new column beside the item list for the **new price**:
+  - Display the projected price that updates every minute.
+  - Color the price red if it has decreased, green if it has increased.
+- Add a **net supply** column:
+  - This will be a variable that resets or updates every minute.
+  - It will accumulate supply over time and decrease when items are bought.
+- Implement a **sell strategy**:
+  - The probability of selling an item depends on its **demand priority**.
+  - The selling cycle and buying cycle will operate every minute based on the game timer.
+- Additional features to implement:
+  - **Range value dictionary control** for price and supply fluctuations.
+  - Randomize the **sell value** every minute.
+  - Incorporate a **sell probability** concept based on demand and other factors.
 
+---
 
-**NOTE** I had a slight debate with my self, if I should use white text instead of black text below the icons.
+## Development flow:
+1. Add a **new price range** for items.
+2. Implement the **buy** mechanic.
+3. Develop the **briefcase** system.
+4. Introduce the **sell** concept, making it strategic for players:
+   - Players can save supply to sell later at higher projected prices (similar to crypto trading, but the difference is that priority is curccial since selling is dependent on the market priority).
+
+---
+
+**Notes**
+- Scraped the whole game mechanic (not literarly) but now it will primarily focus on a **buy table** mechanic, emphasizing strategy.
+- The projected price for the next market refresh encourages players to plan supply and sales.
+- **Text color debate**:
+  - Consider whether to use **white text** instead of **black text** below icons for better visibility or aesthetic preference.
+- Window Bug (please fix future me)
+- At this time range price table has been created.
+
+### Game Flow Update
+
+- **Briefcase**:  
+  - Manage storage of purchased items.  
+  - Cannot sell items if storage is empty.
+
+- **Buy**:  
+  - Purchase items to add to the briefcase for future sale.
+
+- **Sell**:  
+  - Sell items from the briefcase based on demand and projected prices.  
+  - Selling depends on having items in storage.
+
+**Sequence**: Briefcase → Buy → Sell  **VERY IMPORTNAT** because I can not really sell anything if theres nothing to buy.
