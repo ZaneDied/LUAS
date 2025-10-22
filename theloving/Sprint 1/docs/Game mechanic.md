@@ -78,4 +78,4 @@ The game will feature four main panels:
 - leaderboard
 - toturial
 - Difficulty change
--bank
+- Bank

@@ -51,9 +51,18 @@ After implementing the item shop and expanding the network app, I will shift my 
 **NOTE** The menu bar is kinda useless, I will add the pause and save feature into the menu, but I cant really pause and save anything when nothing is being played. (meaning the next step is to add playability, which is the sell and buy)
 
 ## Game mechanic refinement
-- Every 30 seconds, market prices will fluctuate within a specified range.
+- Every minute, market prices will fluctuate within a specified range.
 - Implement a range control dictionary to manage price variation ranges.
 - Track available amount supply for each item.
 - Incorporate demand-based probability for buying items.
+
+# Existing Idea
+have a another list beside the item, and this will be its new price and it will be coloured red or green depending if it went up a price or went down, and this will change every minute, and another key idea is sell stragety, by trying to sell, its probability of selling is dependent on the demand priorty. Sell cycle and buy cycel will be for every minute on the game timer. 
+- Need to implement a range value dictionary control
+- Randomise the sell value every minute
+- Sell probility concept
+
+But firstly new price range must be added then buy then briefcase then sell concepts.
+
 
 **NOTE** I had a slight debate with my self, if I should use white text instead of black text below the icons.
