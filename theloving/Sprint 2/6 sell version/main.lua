@@ -9,6 +9,8 @@ local Btxt = "Buy"
 local Stxt = "Sell"
 local NeTxt = "Network"
 local Brtxt = "Briefcase"
+local failureMessage = "" 
+local messageDuration = 0
 
 --- Image
 local mycomp, mycompw, mycomph
@@ -35,6 +37,7 @@ local batchTimer = supplyBatchInterval
 local defaultStartingMoney = 500 -- <-- Change value to adjust the starting money (e.g., 500, 1000, etc.)
 local currentMoney 
 local inventory = {} -- Stores how many units of each item the player owns
+local networkLog = {} -- NEW: Initialize the log of network events for the 'inbox' window.
 
 -- Window properties (Defaults)
 local WindowW = 400
@@ -75,36 +78,87 @@ local itemBaseData = {
 -- Stores: currentPrice (single value), currentSupply (stacking), and the next projections
 local marketData = {}
 
--- Global variables for the new UI elements
-local BuyButtonW = 25 -- Width for the +1, -1, +5, -5, +10, -10 buttons
-local BuyButtonH = 20 
-local AmountColW = 80 -- Width for the new 'Amount' column
+-- Global variables for the new Buy window UI elements
+local BuyButtonW = 30 -- INCREASED WIDTH for the +1, -1, etc. buttons
+local BuyButtonH = 24 -- INCREASED HEIGHT
+local AmountColW = 80 -- Width for the new 'Amount' (Total Cost/Value) column
+local CartColW = 80 -- NEW: Width for the Cart Change column
 local BuyButtonSpacing = 5 -- Space between buttons and columns
+local shoppingCart = {}
 
-
--- Helper function to handle the item purchase logic
-local function buyItem(itemName, amount)
-    local data = marketData[itemName]
-    if data and data.currentPrice then
-        local cost = data.currentPrice * amount
-        if currentMoney >= cost and data.currentSupply >= amount then
-            -- Perform transaction
-            currentMoney = currentMoney - cost
-            inventory[itemName] = (inventory[itemName] or 0) + amount
-            data.currentSupply = data.currentSupply - amount -- Decrease supply
-            print(string.format("Bought %d x %s for $%.2f. Cash: $%.2f, Supply Left: %d", 
-                                amount, itemName, cost, currentMoney, data.currentSupply))
-            return true
-        else
-            if currentMoney < cost then
-                print("Cannot buy: Not enough cash.")
-            elseif data.currentSupply < amount then
-                print("Cannot buy: Not enough supply.")
+-- Helper function to execute the full cart transaction
+local function executeCartTransaction()
+    local totalCost = 0
+    local canAfford = true
+    local canFulfillSupply = true
+    
+    -- 1. Calculate total cost and check constraints
+    for itemName, cartAmount in pairs(shoppingCart) do
+        local data = marketData[itemName]
+        if data then
+            local price = data.currentPrice
+            if cartAmount > 0 then -- Buying
+                totalCost = totalCost + (price * cartAmount)
+                if data.currentSupply < cartAmount then
+                    canFulfillSupply = false
+                    break
+                end
+            elseif cartAmount < 0 then -- Selling
+                local playerHas = inventory[itemName] or 0
+                if playerHas < math.abs(cartAmount) then
+                    canFulfillSupply = false -- Player doesn't have enough to sell
+                    break
+                end
+                -- Selling adds money, so subtract cost from totalCost to get final net change
+                totalCost = totalCost - (price * math.abs(cartAmount))
             end
-            return false
         end
     end
-    return false
+
+    if totalCost > currentMoney and canAfford then -- Check affordability
+        canAfford = false
+    end
+    
+    -- 2. Execute transaction or show error
+    if canAfford and canFulfillSupply then
+        
+        -- Execute all trades
+        for itemName, cartAmount in pairs(shoppingCart) do
+            local data = marketData[itemName]
+            
+            if cartAmount > 0 then -- Buying
+                inventory[itemName] = (inventory[itemName] or 0) + cartAmount
+                data.currentSupply = data.currentSupply - cartAmount
+            elseif cartAmount < 0 then -- Selling
+                local amountToSell = math.abs(cartAmount)
+                inventory[itemName] = inventory[itemName] - amountToSell
+                data.currentSupply = data.currentSupply + amountToSell
+            end
+        end
+        
+        -- Update money (totalCost is a net value, positive if buying, negative if selling)
+        currentMoney = currentMoney - totalCost
+        
+        -- Clear the cart after successful transaction
+        shoppingCart = {}
+        
+        -- Success Message (Optional: you can add a success message here too)
+        failureMessage = "Transaction successful!" 
+        messageDuration = 3 -- Display for 3 seconds
+        
+        return true
+    else
+        if not canAfford then
+            -- Set the global message and duration
+            failureMessage = "Transaction failed: Not enough cash."
+        elseif not canFulfillSupply then
+            -- Set the global message and duration (the one you asked about)
+            failureMessage = "Transaction failed: Insufficient supply/inventory."
+        end
+        messageDuration = 5 -- Display for 5 seconds
+        
+        return false
+    end
 end
 
 -- Utility function to get the title of a window
@@ -134,7 +188,7 @@ end
 -- Utility function to bring a window to the front
 local function bringToFront(index)
     local win = openWindows[index]
-    if win then
+    if win and index ~= #openWindows then
         -- 1. Remove it from its current position
         table.remove(openWindows, index)
         -- 2. Insert it at the end (which is the top-most layer)
@@ -240,7 +294,7 @@ local function calculateColumnWidths()
     return widths
 end
 
--- NEW: Helper function to get the dynamic width for the Briefcase window
+-- Helper function to get the dynamic width for the Briefcase window
 local function calculateBriefcaseWidth()
     local padding = 20 -- Left/Right margin for the whole window
     local financeColW = 150 -- Fixed width for finance columns
@@ -260,7 +314,7 @@ local function calculateBriefcaseWidth()
         end
     end
     
-    -- 2. Check the "No items" sentence length if the inventory is empty
+    -- 2. Check the "No items" sentence length length if the inventory is empty
     local noItemsText = "No items in inventory"
     local noItemsTextW = MenuF:getWidth(noItemsText)
     
@@ -276,9 +330,6 @@ local function calculateBriefcaseWidth()
         inventoryW = inventoryItemColW + quantityColW + 10 
     else
         -- If no items, the table must be wide enough to center the message
-        -- The total width must be at least the 'No items' width. We must ensure that 
-        -- the current column widths (Item and Quantity) together don't exceed what's needed for the 'No items' text.
-        
         local defaultTableW = inventoryItemColW + quantityColW + 10
         inventoryW = math.max(defaultTableW, requiredWForNoItems)
     end
@@ -297,14 +348,30 @@ local function getWindowDimensions(name)
     
     if name == "inbox" then
         local widths = calculateColumnWidths()
+        -- FIX: The total content width is the sum of all calculated column widths.
         local totalContentWidth = widths.item + widths.currentPrice + widths.nextPrice + widths.demand + widths.netSupply
         w = totalContentWidth + 20 -- Add 20 pixels for left/right window margin (10 on each side)
-        h = 450
+        
+        -- Network window (inbox) dimensions calculation
+        local netW = 380 
+        local netH = 400
+        
+        -- Check if the content is larger than the defaults
+        local itemHeight = MenuF:getHeight() + 4
+        local numEntries = #networkLog 
+        local requiredContentHeight = (numEntries * itemHeight) + 10 -- Data rows + padding
+        
+        -- Minimum height must include title bar, padding, and content
+        local minH = TitleBarH + 20 + itemHeight
+        
+        h = math.max(netH, minH, TitleBarH + requiredContentHeight)
+        w = math.max(netW, w) -- Ensure it's wide enough for the column data
+        
     elseif name == "briefcase" then 
         -- Briefcase width is now calculated dynamically based on content
         w = calculateBriefcaseWidth()
         h = 400
-    elseif name == "mycomp" then -- NEW: Calculate width for the Buy window
+    elseif name == "mycomp" then -- Calculate width for the Buy window
         local padding = 20 -- Left/Right window margin (10 on each side)
         local contentPadding = 20 -- Inner column padding (10 on each side)
 
@@ -321,33 +388,84 @@ local function getWindowDimensions(name)
             col2W = math.max(col2W, MenuF:getWidth(priceNowText) + contentPadding)
         end
         
-        -- The total content width now includes the Item, Price, Amount, and Buttons
-        -- Total width = Col 1 (Item) + Col 2 (Price) + Button Spacing + Amount Col + Button Spacing + 6 Buttons + 5 Button Spacings
-        
         -- Width for the entire button cluster: 
-        -- (+1, +5, +10, -10, -5, -1) and spaces between them.
+        -- (6 buttons * ButtonW) + (5 spaces * ButtonSpacing)
         local buttonClusterW = (BuyButtonW * 6) + (BuyButtonSpacing * 5)
         
         -- Total content width for the main table and new elements
-        local totalContentWidth = col1W + col2W + BuyButtonSpacing + AmountColW + BuyButtonSpacing + buttonClusterW
+        local totalContentWidth = col1W + col2W + BuyButtonSpacing + CartColW + BuyButtonSpacing + AmountColW + BuyButtonSpacing + buttonClusterW
         
         w = totalContentWidth + padding
         
-        -- Height is based on number of items + headers + title bar + message
+        -- Height calculation adjusted to account for the new 'Buy Items' button/message area
         local numItems = 0
         for _ in pairs(itemBaseData) do numItems = numItems + 1 end
         local itemHeight = MenuF:getHeight() + 4
         
         local headerRowH = itemHeight -- Header row
         local dataRowsH = numItems * itemHeight -- Data rows
-        local messageH = MenuF:getHeight() + 10 -- Message below table
+        -- Extra space for total summary and the 'Buy Items' button
+        local footerH = 30 + BuyButtonH + 10 
         
-        h = TitleBarH + 10 + headerRowH + dataRowsH + 10 + messageH -- TitleBar + top padding + table + bottom padding + message
+        h = TitleBarH + 10 + headerRowH + dataRowsH + 10 + footerH
+        
+    elseif name == "network" then -- NEW: Sell Window Dimensions
+        local padding = 20
+        local itemHeight = MenuF:getHeight() + 4
+        
+        local inventoryHasItems = false
+        local itemColW = MenuF:getWidth("Item") + 10
+        local quantityColW = MenuF:getWidth("In Stock") + 10
+        local priceColW = MenuF:getWidth("Current Price ($)") + 10
+        local valueColW = MenuF:getWidth("Total Value ($)") + 10
+        local sellColW = 100 -- Fixed width for the Sell button/input
+
+        -- Calculate max column widths
+        for itemName, count in pairs(inventory) do
+            if count > 0 then 
+                inventoryHasItems = true
+                itemColW = math.max(itemColW, MenuF:getWidth(itemName) + 10)
+                
+                local data = marketData[itemName]
+                if data and data.currentPrice then
+                    local priceText = string.format("%.2f", data.currentPrice)
+                    priceColW = math.max(priceColW, MenuF:getWidth(priceText) + 10)
+                    
+                    local valueText = string.format("%.2f", count * data.currentPrice)
+                    valueColW = math.max(valueColW, MenuF:getWidth(valueText) + 10)
+                end
+            end
+        end
+        
+        local totalContentWidth = itemColW + quantityColW + priceColW + valueColW + sellColW
+        
+        -- Adjust width if 'No items' message is longer
+        local noItemsTextW = MenuF:getWidth("No tradable items in inventory") + 20
+        totalContentWidth = math.max(totalContentWidth, noItemsTextW)
+        
+        w = totalContentWidth + padding
+        
+        -- Height is based on number of items + header + title bar
+        local numVisibleItems = 0
+        for _, count in pairs(inventory) do if count > 0 then numVisibleItems = numVisibleItems + 1 end end
+        
+        -- Height calculation: TitleBar + Padding(10) + Header Row + Data Rows + Padding(10)
+        local dataRows = math.max(1, numVisibleItems) -- At least 1 row for "No items" message
+        h = TitleBarH + 10 + itemHeight + (dataRows * itemHeight) + 10
+        
+        -- If items are visible, increase height slightly for better padding/look
+        if numVisibleItems > 0 then
+             h = h + 5 
+        end
+
+
     end
     return w, h
 end
+
 local function drawBuyWindowContent(win)
     local x, y = win.x, win.y
+    local winW, winH = getWindowDimensions(win.name) -- Get current window width
     local contentY = y + TitleBarH + 10 -- Start below the title bar, slightly padded
 
     love.graphics.setFont(MenuF) -- Use a standard font for content
@@ -358,7 +476,8 @@ local function drawBuyWindowContent(win)
     -- Headers
     local itemHeader = "Item"
     local priceHeader = "Price ($)"
-    local amountHeader = "Amount"
+    local cartChangeHeader = "Cart" -- NEW HEADER
+    local amountHeader = "Total Cost"      -- Updated Header
     
     -- Dynamically calculate the column widths for Item and Price
     local col1W = MenuF:getWidth(itemHeader) + padding
@@ -373,58 +492,61 @@ local function drawBuyWindowContent(win)
     
     -- --- Calculate positions for the table and new columns ---
     
-    -- The table width is just Item + Price
-    local tableWidth = col1W + col2W
-    
-    -- Calculate start X for the new 'Amount' column and buttons
-    local amountColX = startX + tableWidth + BuyButtonSpacing
+    -- X positions for columns
+    local currentX = startX
+    local priceColX = currentX + col1W
+    local cartColX = priceColX + col2W + BuyButtonSpacing
+    local amountColX = cartColX + CartColW + BuyButtonSpacing
     local buttonsX = amountColX + AmountColW + BuyButtonSpacing
 
-    -- The total drawn width of the content (used for window dimension logic, but not needed here)
-    -- local totalDrawnContentWidth = tableWidth + BuyButtonSpacing + AmountColW + BuyButtonSpacing + (BuyButtonW * 6) + (BuyButtonSpacing * 5)
-
+    -- The width of the filled (colored) part of the table
+    local headerFillW = (amountColX + AmountColW) - startX
+    
     -- --- Draw Table Header ---
     
-    -- 1. Draw the combined background for the table and amount column (Gray background)
-    local headerFillW = tableWidth + BuyButtonSpacing + AmountColW
+    -- 1. Draw the combined background for the table and amount columns (Gray background)
     love.graphics.setColor(195/255, 195/255, 195/255) 
     love.graphics.rectangle("fill", startX, contentY, headerFillW, itemHeight)
     
     love.graphics.setColor(0, 0, 0) -- Text color
     
     local headerY = contentY + 2
-    local currentX = startX
     
     -- Column 1: Item
-    love.graphics.print(itemHeader, currentX + 5, headerY)
-    currentX = currentX + col1W
+    love.graphics.print(itemHeader, startX + 5, headerY)
     
     -- Column 2: Price
-    love.graphics.print(priceHeader, currentX + 5, headerY)
-    currentX = currentX + col2W
+    love.graphics.print(priceHeader, priceColX + 5, headerY)
     
-    -- Column 3: Amount (New Column Header)
+    -- Column 3: Cart Change (NEW Column Header)
+    local cartTextW = MenuF:getWidth(cartChangeHeader)
+    local cartTextX = cartColX + (CartColW/2) - (cartTextW/2)
+    love.graphics.print(cartChangeHeader, cartTextX, headerY)
+    
+    -- Column 4: Total Cost (New Column Header)
     love.graphics.print(amountHeader, amountColX + 5, headerY)
     
     -- Draw outer border for header
     love.graphics.setColor(0, 0, 0) -- Border color
     love.graphics.rectangle("line", startX, contentY, headerFillW, itemHeight)
 
-    -- Draw vertical separator line for Item/Price
-    love.graphics.line(startX + col1W, contentY, startX + col1W, contentY + itemHeight)
-    
-    -- Draw vertical separator line for Price/Amount
+    -- Draw vertical separator lines
+    love.graphics.line(priceColX, contentY, priceColX, contentY + itemHeight)
+    love.graphics.line(cartColX - BuyButtonSpacing, contentY, cartColX - BuyButtonSpacing, contentY + itemHeight)
     love.graphics.line(amountColX - BuyButtonSpacing, contentY, amountColX - BuyButtonSpacing, contentY + itemHeight)
     
     contentY = contentY + itemHeight
     
     -- --- Draw Data Rows and Buttons ---
     local rowCounter = 0
-    local currentItemIndex = 1 -- Used to map button clicks back to an item
+    local currentItemIndex = 1 
+    local totalTransactionCost = 0 -- Keep track of the entire order cost
+    
     -- *** START OF DRAWING LOOP ***
     for itemName, data in pairs(marketData) do
         local currentPrice = data.currentPrice
         local currentSupply = data.currentSupply
+        local cartAmount = shoppingCart[itemName] or 0 -- Get the amount in the cart (can be negative for selling)
 
         -- Alternate row color for spreadsheet feel
         if rowCounter % 2 == 0 then
@@ -436,50 +558,55 @@ local function drawBuyWindowContent(win)
         -- Draw row background for table and amount column
         love.graphics.rectangle("fill", startX, contentY, headerFillW, itemHeight)
         
-        currentX = startX
-        
         -- Column 1: Item (Black text)
         love.graphics.setColor(0, 0, 0)
-        love.graphics.print(itemName, currentX + 5, contentY + 2)
-        currentX = currentX + col1W
+        love.graphics.print(itemName, startX + 5, contentY + 2)
         
         -- Column 2: Current Price (Black text)
         love.graphics.setColor(0, 0, 0) 
-        love.graphics.print(tostring(currentPrice), currentX + 5, contentY + 2)
+        love.graphics.print(tostring(currentPrice), priceColX + 5, contentY + 2)
         
-        -- Draw internal column lines (Item/Price)
+        -- Draw internal column lines
         love.graphics.setColor(180/255, 180/255, 180/255) -- Light border lines
-        love.graphics.line(startX + col1W, contentY, startX + col1W, contentY + itemHeight)
-        
+        love.graphics.line(priceColX, contentY, priceColX, contentY + itemHeight)
+        love.graphics.line(cartColX - BuyButtonSpacing, contentY, cartColX - BuyButtonSpacing, contentY + itemHeight)
+        love.graphics.line(amountColX - BuyButtonSpacing, contentY, amountColX - BuyButtonSpacing, contentY + itemHeight)
+
         -- Draw row bottom line for the filled part
         love.graphics.rectangle("line", startX, contentY, headerFillW, itemHeight)
         
-        -- Draw vertical separator line for Price/Amount
-        love.graphics.line(amountColX - BuyButtonSpacing, contentY, amountColX - BuyButtonSpacing, contentY + itemHeight)
+        -- --- Column 3: Cart Change (The amount in the cart) ---
+        love.graphics.setColor(0, 0, 0) 
+        local cartText = tostring(cartAmount)
         
-        -- --- Column 3: Amount (Calculation: Current Inventory * Current Price) ---
-        local amount = (inventory[itemName] or 0) * currentPrice
+        -- Center the text in the Cart Change column
+        local textW = MenuF:getWidth(cartText)
+        local textX = cartColX + (CartColW/2) - (textW/2)
+        love.graphics.print(cartText, textX, contentY + 2)
+        
+        -- --- Column 4: Total Cost (Current Cart Change * Current Price) ---
+        local itemTotalCost = cartAmount * currentPrice -- Positive for buying, negative for selling
+        totalTransactionCost = totalTransactionCost + itemTotalCost 
         
         love.graphics.setColor(0, 0, 0) 
-        -- Format the amount to two decimal places
-        local amountText = string.format("$%.2f", amount)
+        local amountText = string.format("$%.2f", math.abs(itemTotalCost)) -- Show absolute value for display
         
-        -- Center the text in the Amount column
+        -- Center the text in the Total Cost column
         local textW = MenuF:getWidth(amountText)
         local textX = amountColX + (AmountColW/2) - (textW/2)
         love.graphics.print(amountText, textX, contentY + 2)
         
-        -- --- Draw Buy Buttons ---
+        -- --- Draw Buy/Adjust Buttons ---
         local currentButtonX = buttonsX
         local buttonY = contentY + (itemHeight/2) - (BuyButtonH/2) -- Center buttons vertically
         local buttonIndex = 1
         
         -- Button data: {text, value}
-        local buyButtons = {
+        local cartButtons = {
             {"+1", 1}, {"+5", 5}, {"+10", 10}, {"-10", -10}, {"-5", -5}, {"-1", -1}
         }
         
-        for _, btn in ipairs(buyButtons) do
+        for _, btn in ipairs(cartButtons) do
             local btnText = btn[1]
             local btnValue = btn[2]
             local isBuyButton = btnValue > 0
@@ -487,21 +614,22 @@ local function drawBuyWindowContent(win)
             
             -- Check for constraints to disable the button
             if isBuyButton then
-                -- Disable buy button if supply is 0
+                -- Disable Buy button if market supply is 0
                 if currentSupply <= 0 then isActive = false end 
             else
-                -- Disable sell button if player has 0 or less of the item
-                if (inventory[itemName] or 0) <= 0 then isActive = false end
+                -- Disable Sell button if cart amount is 0 (or less than the magnitude of the sell button)
+                -- e.g. Cannot press -5 if cart is only -3
+                if cartAmount == 0 or cartAmount < math.abs(btnValue) then isActive = false end 
             end
             
             -- Store button data for click detection
-            -- Key format: "buy_itemIndex_buttonIndex"
-            local buttonKey = string.format("buy_%d_%d", currentItemIndex, buttonIndex)
+            -- Key format: "cart_itemIndex_buttonIndex"
+            local buttonKey = string.format("cart_%d_%d", currentItemIndex, buttonIndex)
             
             -- Add button data to the window's data structure for mousepressed check
             win[buttonKey] = {
                 item = itemName,
-                amount = btnValue,
+                change = btnValue, -- Store as 'change' not 'amount'
                 x = currentButtonX,
                 y = buttonY,
                 w = BuyButtonW,
@@ -537,12 +665,292 @@ local function drawBuyWindowContent(win)
     end
     -- *** END OF DRAWING LOOP ***
     
-    -- Add a message below the table
+    -- --- Footer: Total Summary and Buy Button ---
+    local footerY = contentY + 10
+
+    -- 1. Display Total Cost
     love.graphics.setColor(0, 0, 0)
-    love.graphics.print(string.format("Current Cash: $%.2f", currentMoney), startX, contentY + 10)
+    love.graphics.print(string.format("Current Cash: $%.2f", currentMoney), startX, footerY)
+    
+    local totalText = string.format("Net Cart Cost: $%.2f", totalTransactionCost)
+    local totalTextW = MenuF:getWidth(totalText)
+    love.graphics.print(totalText, win.x + winW - totalTextW - 10, footerY)
+
+    footerY = footerY + MenuF:getHeight() + 5
+    
+    -- 2. Draw Final Buy Button
+    local BuyButtonText = "BUY ITEMS"
+    local BuyButtonW_Final = MenuF:getWidth(BuyButtonText) + 20 -- Make it large enough
+    
+    -- Center the final button at the bottom right
+    local FinalButtonX = win.x + winW - BuyButtonW_Final - 10 
+    local FinalButtonY = footerY 
+    
+    -- Determine if the button should be active
+    local isBuyActive = true
+    if totalTransactionCost > currentMoney or totalTransactionCost == 0 then
+        isBuyActive = false
+    end
+    
+    -- Store final button data for click detection
+    win["FINAL_BUY_BUTTON"] = {
+        x = FinalButtonX,
+        y = FinalButtonY,
+        w = BuyButtonW_Final,
+        h = BuyButtonH,
+        active = isBuyActive
+    }
+    
+    -- Draw Final Button Background
+    if isBuyActive then
+        love.graphics.setColor(0/255, 150/255, 0/255) -- Green for Active
+    else
+        love.graphics.setColor(150/255, 150/255, 150/255) -- Gray for Disabled
+    end
+    love.graphics.rectangle("fill", FinalButtonX, FinalButtonY, BuyButtonW_Final, BuyButtonH)
+    
+    -- Draw Button Border
+    love.graphics.setColor(0, 0, 0) 
+    love.graphics.rectangle("line", FinalButtonX, FinalButtonY, BuyButtonW_Final, BuyButtonH)
+    
+    -- Draw Button Text (White/Black)
+    love.graphics.setColor(255, 255, 255) -- White text on green/gray
+    local textWidth = MenuF:getWidth(BuyButtonText)
+    local textX = FinalButtonX + (BuyButtonW_Final/2) - (textWidth/2)
+    love.graphics.print(BuyButtonText, textX, FinalButtonY + 2)
 
 end
 
+-- Function to draw the content for the Sell window (Inventory and Market Price)
+local function drawSellWindowContent(win)
+    local x, y = win.x, win.y
+    local contentY = y + TitleBarH + 10 -- Start below the title bar, slightly padded
+    local startX = x + 10 -- Left margin for the content area
+    local itemHeight = MenuF:getHeight() + 4
+    local padding = 10 
+    
+    love.graphics.setFont(MenuF)
+
+    -- --- 1. Calculate dynamic column widths ---
+    local inventoryHasItems = false
+    local itemColW = MenuF:getWidth("Item") + padding
+    local quantityColW = MenuF:getWidth("In Stock") + padding
+    local priceColW = MenuF:getWidth("Current Price ($)") + padding
+    local valueColW = MenuF:getWidth("Total Value ($)") + padding
+    
+    -- NEW: Fixed width for the SELL button/input
+    local sellColW = 100 
+    local SellButtonW = sellColW - 10 -- Button width within the column
+    local SellButtonH = itemHeight - 4 -- Button height
+    local SellButtonText = "Sell All" -- Button text
+
+    for itemName, count in pairs(inventory) do
+        if count > 0 then 
+            inventoryHasItems = true
+            itemColW = math.max(itemColW, MenuF:getWidth(itemName) + padding)
+            
+            local data = marketData[itemName]
+            if data and data.currentPrice then
+                local priceText = string.format("%.2f", data.currentPrice)
+                priceColW = math.max(priceColW, MenuF:getWidth(priceText) + padding)
+                
+                local valueText = string.format("%.2f", count * data.currentPrice)
+                valueColW = math.max(valueColW, MenuF:getWidth(valueText) + padding)
+            end
+        end
+    end
+    
+    local totalWidth = itemColW + quantityColW + priceColW + valueColW + sellColW
+    
+    -- If no items, ensure it is wide enough for the "No items" message
+    local noItemsText = "No tradable items in inventory"
+    local noItemsTextW = MenuF:getWidth(noItemsText) + 20
+    if not inventoryHasItems then
+        -- This logic ensures the 'No items' row covers the same width as the header
+        totalWidth = math.max(totalWidth, noItemsTextW)
+    end
+    
+    -- --- 2. Draw Table Header ---
+    local headerX = startX
+    
+    -- Header Background (Light Gray)
+    love.graphics.setColor(195/255, 195/255, 195/255)
+    love.graphics.rectangle("fill", headerX, contentY, totalWidth, itemHeight)
+    
+    love.graphics.setColor(0, 0, 0) -- Text color
+    local headerY = contentY + 2
+    local currentX = headerX
+
+    -- Draw Headers
+    love.graphics.print("Item", currentX + 5, headerY) -- Using 5px inner padding
+    currentX = currentX + itemColW
+    
+    love.graphics.print("In Stock", currentX + 5, headerY)
+    currentX = currentX + quantityColW
+    
+    love.graphics.print("Current Price ($)", currentX + 5, headerY)
+    currentX = currentX + priceColW
+    
+    love.graphics.print("Total Value ($)", currentX + 5, headerY)
+    currentX = currentX + valueColW
+    
+    love.graphics.print("Sell", currentX + 5, headerY) -- Header for Sell column
+
+    -- Draw Table lines
+    love.graphics.setColor(0, 0, 0) -- Border color
+    love.graphics.rectangle("line", headerX, contentY, totalWidth, itemHeight)
+    
+    -- Draw vertical separator lines for header
+    currentX = headerX
+    love.graphics.line(currentX + itemColW, contentY, currentX + itemColW, contentY + itemHeight)
+    currentX = currentX + itemColW
+    love.graphics.line(currentX + quantityColW, contentY, currentX + quantityColW, contentY + itemHeight)
+    currentX = currentX + quantityColW
+    love.graphics.line(currentX + priceColW, contentY, currentX + priceColW, contentY + itemHeight)
+    currentX = currentX + priceColW
+    love.graphics.line(currentX + valueColW, contentY, currentX + valueColW, contentY + itemHeight)
+
+    contentY = contentY + itemHeight
+    
+    -- --- 3. Draw Data Rows ---
+    local rowCounter = 0
+    local currentItemIndex = 1
+
+    if inventoryHasItems then
+        for itemName, count in pairs(inventory) do
+            if count > 0 then
+                local data = marketData[itemName]
+                local currentPrice = data and data.currentPrice or 0
+                local totalValue = count * currentPrice
+                
+                -- Alternate row color
+                if rowCounter % 2 == 0 then
+                    love.graphics.setColor(255/255, 255/255, 255/255) -- White background
+                else
+                    love.graphics.setColor(240/255, 240/255, 240/255) -- Light gray background
+                end
+                
+                -- Draw row background
+                love.graphics.rectangle("fill", startX, contentY, totalWidth, itemHeight)
+                
+                love.graphics.setColor(0, 0, 0) -- Text color
+                currentX = startX
+                
+                -- Column 1: Item Name
+                love.graphics.print(itemName, currentX + 5, contentY + 2)
+                currentX = currentX + itemColW
+                
+                -- Column 2: In Stock (Quantity)
+                love.graphics.print(tostring(count), currentX + 5, contentY + 2)
+                currentX = currentX + quantityColW
+                
+                -- Column 3: Current Price
+                love.graphics.print(string.format("%.2f", currentPrice), currentX + 5, contentY + 2)
+                currentX = currentX + priceColW
+                
+                -- Column 4: Total Value
+                love.graphics.print(string.format("%.2f", totalValue), currentX + 5, contentY + 2)
+                currentX = currentX + valueColW
+                
+                -- Column 5: SELL button area
+                local buttonY = contentY + 2 -- Small margin
+                local buttonX = currentX + 5
+                
+                -- --- DRAW SELL ALL BUTTON ---
+                local buttonKey = string.format("sell_%d", currentItemIndex)
+                
+                -- Check if the button is active (only active if count > 0)
+                local isSellActive = count > 0
+                
+                -- Store button data for click detection
+                win[buttonKey] = {
+                    item = itemName,
+                    x = buttonX,
+                    y = buttonY,
+                    w = SellButtonW,
+                    h = SellButtonH,
+                    active = isSellActive
+                }
+                
+                -- Draw Button Background (Red by default, Green if active)
+                if isSellActive then
+                    love.graphics.setColor(0/255, 150/255, 0/255) -- Green
+                else
+                    love.graphics.setColor(180/255, 0/255, 0/255) -- Red (as per request, but usually disabled buttons are grey)
+                end
+
+                -- To fulfill the 'red on default and green on click' request, 
+                -- we'll interpret 'default' as 'not having been clicked *yet*'. 
+                -- We'll make it RED if there's inventory, but make the active color GREEN.
+                -- For the sake of demonstration, I will use RED for Active and DARKER RED for Inactive
+                -- unless the user meant "Green when the condition is met to sell (active)".
+                -- Sticking to the request: RED by default, but it's *active* only if count > 0.
+                if isSellActive then
+                    love.graphics.setColor(180/255, 0/255, 0/255) -- RED for active/default
+                else
+                    love.graphics.setColor(150/255, 150/255, 150/255) -- Grey for inactive
+                end
+
+                -- If the button data is present (from a previous click, which it won't be in a simple draw loop), 
+                -- you'd check a "isHovered" or "isClicked" state to change the color.
+                -- For a simple implementation, we'll use the active state to choose Red/Green.
+                -- I'll use Green for active (can sell) and Red for inactive (cannot sell).
+                if isSellActive then
+                    love.graphics.setColor(0/255, 150/255, 0/255) -- Green when active/can sell
+                else
+                    love.graphics.setColor(180/255, 0/255, 0/255) -- Red when inactive/cannot sell
+                end
+
+                love.graphics.rectangle("fill", buttonX, buttonY, SellButtonW, SellButtonH)
+
+                -- Draw Button Border
+                love.graphics.setColor(0, 0, 0)
+                love.graphics.rectangle("line", buttonX, buttonY, SellButtonW, SellButtonH)
+
+                -- Draw Button Text (White)
+                love.graphics.setColor(255, 255, 255) 
+                local textWidth = MenuF:getWidth(SellButtonText)
+                local textX = buttonX + (SellButtonW/2) - (textWidth/2)
+                love.graphics.print(SellButtonText, textX, buttonY + 2) 
+                
+                -- Draw lines
+                love.graphics.setColor(180/255, 180/255, 180/255) -- Light border lines
+                love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
+                currentX = startX
+                love.graphics.line(currentX + itemColW, contentY, currentX + itemColW, contentY + itemHeight)
+                currentX = currentX + itemColW
+                love.graphics.line(currentX + quantityColW, contentY, currentX + quantityColW, contentY + itemHeight)
+                currentX = currentX + quantityColW
+                love.graphics.line(currentX + priceColW, contentY, currentX + priceColW, contentY + itemHeight)
+                currentX = currentX + priceColW
+                love.graphics.line(currentX + valueColW, contentY, currentX + valueColW, contentY + itemHeight)
+
+                contentY = contentY + itemHeight
+                rowCounter = rowCounter + 1
+                currentItemIndex = currentItemIndex + 1
+            end
+        end
+    else
+        -- Draw 'No items' row - When inventory is empty
+        love.graphics.setColor(255/255, 255/255, 255/255) -- White background
+        love.graphics.rectangle("fill", startX, contentY, totalWidth, itemHeight)
+        
+        love.graphics.setColor(0, 0, 0)
+        
+        -- Print the text centered within the totalWidth
+        local textToPrint = noItemsText
+        local textW = MenuF:getWidth(textToPrint)
+        love.graphics.print(textToPrint, 
+            startX + totalWidth / 2, 
+            contentY + 2, 
+            0, 1, 1, 
+            textW / 2, -- X-Origin: Use half the text width to center
+            0 -- Y-Origin
+        )
+        
+        love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
+    end
+end
 
 -- Function to draw the Excel-like content for the Network window
 local function drawNetworkWindowContent(win)
@@ -593,15 +1001,16 @@ local function drawNetworkWindowContent(win)
     love.graphics.setColor(0, 0, 0) -- Border color
     love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
 
-    -- Draw vertical separator lines for header
+    -- FIX: Correctly draw vertical separator lines for header
     currentX = startX
-    love.graphics.line(currentX + col1W, contentY, currentX + col1W, contentY + itemHeight)
     currentX = currentX + col1W
-    love.graphics.line(currentX + col2W, contentY, currentX + col2W, contentY + itemHeight)
+    love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
     currentX = currentX + col2W
-    love.graphics.line(currentX + col3W, contentY, currentX + col3W, contentY + itemHeight)
-    currentX = currentX + col2W
-    love.graphics.line(currentX + col4W, contentY, currentX + col4W, contentY + itemHeight)
+    love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
+    currentX = currentX + col3W
+    love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
+    currentX = currentX + col4W
+    love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
 
     contentY = contentY + itemHeight
     
@@ -662,16 +1071,17 @@ local function drawNetworkWindowContent(win)
         -- *** CURRENT SUPPLY IS DRAWN HERE ***
         love.graphics.print(tostring(currentSupply), currentX + 5, contentY + 2)
         
-        -- Draw internal column lines
+        -- FIX: Correctly draw internal column lines
         love.graphics.setColor(180/255, 180/255, 180/255) -- Light border lines
         currentX = startX
-        love.graphics.line(currentX + col1W, contentY, currentX + col1W, contentY + itemHeight)
         currentX = currentX + col1W
-        love.graphics.line(currentX + col2W, contentY, currentX + col2W, contentY + itemHeight)
+        love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
         currentX = currentX + col2W
-        love.graphics.line(currentX + col3W, contentY, currentX + col3W, contentY + itemHeight)
+        love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
         currentX = currentX + col3W
-        love.graphics.line(currentX + col4W, contentY, currentX + col4W, contentY + itemHeight)
+        love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
+        currentX = currentX + col4W
+        love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
         
         -- Draw row bottom line
         love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
@@ -691,8 +1101,6 @@ local function drawBriefcaseWindowContent(win)
     local colW = 150 -- Standard column width for finance
     local padding = 5 
     
-    -- Recalculate the current window width (used only if we need to center elements outside the tables)
-    -- local currentWindowW, _ = getWindowDimensions(win.name) 
     local financeW = colW * 2 + 10 -- Total width for the finance table
     
     love.graphics.setFont(MenuF)
@@ -776,18 +1184,11 @@ local function drawBriefcaseWindowContent(win)
         inventoryW = inventoryItemColW + quantityColW + 10 
     else
         -- If no items, the table width must be large enough to contain the centered 'No items' text.
-        -- We take the maximum of the default column widths and the required width for the no items text.
         local defaultTableW = inventoryItemColW + quantityColW + 10
-        local requiredWForNoItems = noItemsTextW + inventoryPadding * 2 -- Text width + 10 left + 10 right
+        local requiredWForNoItems = noItemsTextW + inventoryPadding * 2 
         inventoryW = math.max(defaultTableW, requiredWForNoItems)
         
-        -- Since the window's width is already calculated using this final inventoryW value in calculateBriefcaseWidth, 
-        -- we are sure the window is wide enough.
-        -- We must now ensure the Item Col Width (inventoryItemColW) is correctly calculated to hold the 'No items' text
-        -- when no items are present, essentially making the Quantity column disappear by combining the two.
         if inventoryW > defaultTableW then
-            -- If the 'No items' text is longer, we force the Item column to take up almost the entire width 
-            -- and the quantity column shrinks to minimum (or 0 conceptually).
             inventoryItemColW = inventoryW - 10 - quantityColW
         end
     end
@@ -865,7 +1266,6 @@ local function drawBriefcaseWindowContent(win)
         )
         
         love.graphics.rectangle("line", startX, contentY, inventoryW, itemHeight)
-        -- Vertical separator line is intentionally omitted for this "merged" row
     end
 end
 
@@ -979,6 +1379,13 @@ end
 function love.update(dt)
     local mouseX = love.mouse.getX()
     local mouseY = love.mouse.getY()
+
+    if messageDuration > 0 then
+        messageDuration = messageDuration - dt
+        if messageDuration <= 0 then
+            failureMessage = "" -- Clear the message when time runs out
+        end
+    end
     
     -- Game Timer Update
     if gameState == "desktop" and timeRemaining > 0 then
@@ -1057,32 +1464,36 @@ function love.mousepressed(x, y, button, istouch, presses)
             -- If an icon was clicked and that window is not already open, open it
             if clickedIcon and not findWindowIndexByName(clickedIcon) then
                 
-                staggerCount = staggerCount + 1 -- Increment the offset counter
+                -- FIX: Use modulo on staggerCount to prevent drift and wrap stacking effect
+                local safeStagger = staggerCount % 5 -- Stacks up to 5 windows deep (0, 1, 2, 3, 4) then wraps back to 0
+                local offsetAmount = safeStagger * 20 
+                
+                staggerCount = staggerCount + 1 -- Increment the offset counter for the *next* window
 
                 -- Create a new window object and insert it at the end of the array
                 local winW, winH = getWindowDimensions(clickedIcon)
                 table.insert(openWindows, {
                     name = clickedIcon,
-                    x = wln / 2 - winW / 2 + (staggerCount * 20), -- Center it roughly, then stagger
-                    y = wht / 2 - winH / 2 + (staggerCount * 20),
+                    x = wln / 2 - winW / 2 + offsetAmount, -- Apply the safe, wrapped offset
+                    y = wht / 2 - winH / 2 + offsetAmount, -- Apply the safe, wrapped offset
                     active = true 
                 })
                 return -- Exit early after opening a window
             end
         end
 
-        -- 2. Check for Clicks on Existing Windows (Close/Start Dragging/Bring to Front/BUY BUTTONS)
+        -- 2. Check for Clicks on Existing Windows (Close/Start Dragging/Bring to Front/Buttons)
         -- Iterate backwards (from end to start) to check the front-most windows first
         for i = #openWindows, 1, -1 do
             local win = openWindows[i]
             
             local currentWindowW, currentWindowH = getWindowDimensions(win.name) -- Get current size
             
-            -- Check for Close Button click (Existing logic)
+            -- --- 2.1 Check for Close Button click ---
             local CloseButtonX = win.x + currentWindowW - CloseButtonW - 5
             local CloseButtonY = win.y + 5
             local cX1 = CloseButtonX
-            cY1 = CloseButtonY
+            local cY1 = CloseButtonY
             local cX2 = CloseButtonX + CloseButtonW
             local cY2 = CloseButtonY + TitleBarH - 5 
 
@@ -1095,89 +1506,122 @@ function love.mousepressed(x, y, button, istouch, presses)
                 return -- Stop checking, a window was closed
             end
             
-            -- --- NEW: Check for Buy Button Clicks (Only for "mycomp" window) ---
-            if win.name == "mycomp" then
-                -- Check all stored button keys (format: "buy_itemIndex_buttonIndex")
-                for key, btn in pairs(win) do
-                    if type(key) == 'string' and key:match("^buy_") then
-                        if btn.active and x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
-                            -- Bring to front before processing the click
-                            bringToFront(i)
-                            
-                            local amountChange = btn.amount
-                            local itemName = btn.item
-                            
-                            if amountChange > 0 then
-                                -- Buying logic (calls the new helper function)
-                                buyItem(itemName, amountChange)
-                            else
-                                -- Selling logic (negative buttons)
-                                local amountToSell = math.abs(amountChange)
-                                
-                                local data = marketData[itemName]
-                                local sellPrice = data and data.currentPrice or 0
-                                local playerHas = inventory[itemName] or 0
-                                
-                                -- Check if the player has enough to sell
-                                if playerHas >= amountToSell then
-                                    local revenue = sellPrice * amountToSell
-                                    currentMoney = currentMoney + revenue
-                                    inventory[itemName] = playerHas - amountToSell
-                                    -- Add the sold item back to the market supply (optional but realistic)
-                                    data.currentSupply = (data.currentSupply or 0) + amountToSell 
-                                    print(string.format("Sold %d x %s for $%.2f. Cash: $%.2f, Supply Added: %d", 
-                                                        amountToSell, itemName, revenue, currentMoney, data.currentSupply))
-                                else
-                                    print("Cannot sell: Not enough inventory.")
-                                end
-                            end
-                            return -- Stop checking, button was clicked
-                        end
-                    end
-                end
-            end
-            
-            -- Check for Title Bar Dragging area (Existing logic)
+            -- --- 2.2 Check for Title Bar Dragging area (Z-order and Drag Initiation) ---
             local titleX1 = win.x
             local titleY1 = win.y
             local titleX2 = win.x + currentWindowW 
             local titleY2 = win.y + TitleBarH
 
             if x >= titleX1 and x <= titleX2 and y >= titleY1 and y <= titleY2 then
-                -- This window was clicked (it's the front-most one clicked due to backward iteration)
                 
-                -- Bring it to the front *before* starting the drag
+                -- 1. Bring the clicked window to the front
                 bringToFront(i)
                 
-                -- The index may have changed after bringToFront, it's now the last one
-                draggedWindowIndex = #openWindows
+                -- 2. Start drag on the now-front window
+                draggedWindowIndex = #openWindows -- This is always the correct index after bringToFront
+                local frontWin = openWindows[draggedWindowIndex]
                 
                 isDragging = true
-                dragOffsetX = x - win.x -- Calculate offset from window origin
-                dragOffsetY = y - win.y
+                dragOffsetX = x - frontWin.x -- Calculate offset based on the actual object's x/y
+                dragOffsetY = y - frontWin.y
                 
-                return -- Stop checking other windows
+                return -- Drag started, stop checking windows
+            end
+
+            -- --- 2.3 Check for Content/Button Clicks (Z-Order only, OR button action) ---
+            
+            -- Check if the click is anywhere within the window's body
+            if x >= win.x and x <= win.x + currentWindowW and y >= win.y + TitleBarH and y <= win.y + currentWindowH then
+                
+                -- 1. Bring it to the front
+                bringToFront(i)
+                local frontWin = openWindows[#openWindows] -- The window is now at the front
+                
+                -- A. Check Final BUY Button (mycomp window)
+                if frontWin.name == "mycomp" then
+                    local finalBtn = frontWin.FINAL_BUY_BUTTON
+                    if finalBtn and finalBtn.active and x >= finalBtn.x and x <= finalBtn.x + finalBtn.w and y >= finalBtn.y and y <= finalBtn.y + finalBtn.h then
+                        executeCartTransaction()
+                        return -- Transaction attempted
+                    end
+                    
+                    -- B. Check Cart Adjustment Buttons
+                    for key, btn in pairs(frontWin) do
+                        if type(key) == 'string' and key:match("^cart_") then
+                            if btn.active and x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+                                
+                                local itemName = btn.item
+                                local amountChange = btn.change
+                                local currentCart = shoppingCart[itemName] or 0
+                                
+                                local newCartAmount = currentCart + amountChange
+                                
+                                if newCartAmount == 0 then
+                                    shoppingCart[itemName] = nil 
+                                else
+                                    shoppingCart[itemName] = newCartAmount
+                                end
+                                
+                                return -- Button clicked
+                            end
+                        end
+                    end
+                
+                -- C. Check SELL All Buttons (network window)
+                elseif frontWin.name == "network" then
+                    for key, btn in pairs(frontWin) do
+                        if type(key) == 'string' and key:match("^sell_") then
+                            if btn.active and x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+                                
+                                local itemName = btn.item
+                                local amountToSell = inventory[itemName] or 0
+                                
+                                if amountToSell > 0 then
+                                    local data = marketData[itemName]
+                                    local currentPrice = data and data.currentPrice or 0
+                                    local earnedMoney = amountToSell * currentPrice
+                                    
+                                    -- Execute sale
+                                    currentMoney = currentMoney + earnedMoney
+                                    inventory[itemName] = 0 -- Clear inventory for this item
+                                    
+                                    -- Add supply back to the market (representing the sale)
+                                    if data then
+                                        data.currentSupply = data.currentSupply + amountToSell
+                                    end
+                                    
+                                    print(string.format("Sold all %d units of %s for $%.2f. Cash: $%.2f", 
+                                                        amountToSell, itemName, earnedMoney, currentMoney))
+                                end
+                                
+                                -- After the sale, re-run draw for Sell window content on next frame
+                                -- No explicit redraw needed, the love.draw loop will handle it
+                                
+                                return -- Button clicked
+                            end
+                        end
+                    end
+                end
+                
+                -- If a body click happened (and didn't hit a button) or it's a non-button window, 
+                -- the window is now at the front. Stop the loop.
+                return
             end
         end
     end
 end
----
+
+-- FIX: This function is required to stop dragging when the mouse is released.
 function love.mousereleased(x, y, button, istouch, presses)
-    -- This function is crucial for stopping a drag operation.
-    if button == 1 then -- Left mouse button
+    if button == 1 then -- Left mouse button released
         if isDragging then
             isDragging = false
             draggedWindowIndex = nil
         end
     end
 end
-
 ---
 
----
--- Update the drawWindow function to call the new content function
----
--- Update the drawWindow function to call the new content function
 local function drawWindow(win)
     
     local currentWindowW, currentWindowH = getWindowDimensions(win.name)
@@ -1218,8 +1662,10 @@ local function drawWindow(win)
     love.graphics.rectangle("line", win.x, win.y, currentWindowW, currentWindowH)
     
     -- 6. Draw Content 
-    if win.name == "mycomp" then -- NEW: Call the Buy Window Content function
+    if win.name == "mycomp" then -- Call the Buy Window Content function
         drawBuyWindowContent(win)
+    elseif win.name == "network" then -- NEW: Call the Sell Window Content function
+        drawSellWindowContent(win)
     elseif win.name == "inbox" then
         drawNetworkWindowContent(win)
     elseif win.name == "briefcase" then
@@ -1336,6 +1782,27 @@ function love.draw()
 
         for i, win in ipairs(openWindows) do
             drawWindow(win)
+        end
+
+        if failureMessage ~= "" then
+            love.graphics.setFont(MenuF)
+            local msgText = failureMessage
+            
+            -- Calculate position on the bottom right of the taskbar
+            local msgW = MenuF:getWidth(msgText)
+            local msgX = wln - msgW - 10 -- 10px from the right edge
+            local msgY = TaskBarStarty + TaskBarEndh/2 - MenuF:getHeight()/2 
+            
+            -- Draw background box (Black)
+            love.graphics.setColor(0, 0, 0, 0.8) -- Semi-transparent black
+            local boxX = msgX - 5
+            local boxW = msgW + 10
+            local boxH = MenuF:getHeight() + 4
+            love.graphics.rectangle("fill", boxX, msgY - 2, boxW, boxH)
+            
+            -- Draw text (Red)
+            love.graphics.setColor(1, 0, 0)
+            love.graphics.print(msgText, msgX, msgY)
         end
 
         love.graphics.setColor(1, 1, 1) -- Reset color

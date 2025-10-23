@@ -209,7 +209,7 @@ local function calculateColumnWidths()
     return widths
 end
 
--- NEW: Helper function to get the dynamic width for the Briefcase window
+-- Helper function to get the dynamic width for the Briefcase window
 local function calculateBriefcaseWidth()
     local padding = 20 -- Left/Right margin for the whole window
     local financeColW = 150 -- Fixed width for finance columns

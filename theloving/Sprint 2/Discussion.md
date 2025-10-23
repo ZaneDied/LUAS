@@ -112,4 +112,20 @@ After implementing the item shop and expanding the network app, I will shift my 
 
 I have just created the buy version, and that was probably the hardest part to do since I had to figure out how to style it and also its logic. I also kept getting confused by my own code, but it was later resolved by re-following my pseudo code. 
 
-I do not want to touch my program if it works — it works. It might not be the tidiest anymore, and I may have changed too much stuff. But again, if it works it works.
+I do not want to touch my program if it works — it works. It might not be the tidiest anymore, and I may have changed too much stuff. But again, if it works it works. (There might be some font text error, I cannot be bothered to check all of it.)
+
+Theres a bug, on top window bug, I may have tweak the logic to much and maybe have broke the logic, I have tested and rexamine the code, I have changed quite a few within the buy and sell version, and a working window would be briefcase version and below. I did some comparrison, between the 2 codes where that there was a implementation of new padding and I think my z cords were getting confused, I have fix the window click logic love.mousepressed 
+
+Clicking a title bar immediately brings that window to the front AND starts the drag instantly.
+
+Clicking the window body (including buttons) brings that window to the front to handle the action.
+
+I have also included the display fixes for the Network window you requested in the previous step.
+
+**NOTE** Also fixed the anoyance of clicking the title bar
+
+after making the first ever working game
+I tried to work on the second version of selling game
+and I tried to make the windows very adaptable on the tables and I think I ended up messing up something. Because Ive been replacing and remaking and replace parts of the code to fit perfectly without changing much of the variables.
+
+I give up, I cant get to fix it, I have done to much stuff so il over flow the sell version 2 to the next sprint and work on the menu and save, since I have already fix the bugs of window disapearing and window active.
