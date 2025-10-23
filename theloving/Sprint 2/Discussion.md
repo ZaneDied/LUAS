@@ -105,3 +105,11 @@ After implementing the item shop and expanding the network app, I will shift my 
   - Selling depends on having items in storage.
 
 **Sequence**: Briefcase → Buy → Sell  **VERY IMPORTNAT** because I can not really sell anything if theres nothing to buy.
+
+### Game Mechanics update
+- Still implementing the probability sell but on a refresh rate of every 5 seconds
+- Kinda annoyed how I have to click on the title bar (remember the window bug)
+
+I have just created the buy version, and that was probably the hardest part to do since I had to figure out how to style it and also its logic. I also kept getting confused by my own code, but it was later resolved by re-following my pseudo code. 
+
+I do not want to touch my program if it works — it works. It might not be the tidiest anymore, and I may have changed too much stuff. But again, if it works it works.

@@ -1,0 +1,81 @@
+// Initialization
+Set window dimensions, positions, and game variables
+Define static item data: price range, supply range, demand
+Initialize dynamic market data and player inventory
+Load images, fonts, and set positions for icons and UI elements
+Set up game state variables (selection or desktop, timers, windows array)
+
+// On game start
+Set background color
+Determine window sizes and positions
+Initialize market data and inventory
+Set up selection buttons for game duration
+Load images and fonts
+
+// Main update loop (per frame)
+If game is in 'desktop' state:
+    - Decrease game timer and supply batch timer
+    - If supply batch timer reaches zero:
+        - Call function to refresh market:
+            - Update current prices to projected prices
+            - Add new supply batch to current supply
+            - Recalculate next projected prices and demands
+    - If dragging a window:
+        - Update window position based on mouse movement
+
+// Mouse pressed event
+If left button clicked:
+    - If in 'selection' mode:
+        - Check if a duration button is clicked:
+            - Set game timer accordingly
+            - Switch to 'desktop' mode
+            - Call market projection calculation
+    - Else if in 'desktop' mode:
+        - Check if an icon (buy, sell, network, briefcase) is clicked:
+            - If not already open, create a new window with staggered position
+        - Check if a window is clicked:
+            - If close button is clicked, close window
+            - If title bar is clicked:
+                - Bring window to front
+                - Start dragging
+            - If within a window:
+                - Check for buy/sell adjustment button clicks:
+                    - Update shopping cart accordingly
+
+// Mouse released event
+Stop dragging
+
+// Function to draw windows
+Draw window background, title bar, close button
+Draw window title text
+If window is 'network' or 'briefcase':
+    - Call specific functions to draw their content
+
+// Function to draw the main screen (taskbar, icons, windows)
+If in 'selection' mode:
+    - Draw overlay with game duration options
+Else:
+    - Draw taskbar with start button and timer
+    - Draw desktop icons (buy, sell, network, briefcase)
+    - Draw open windows by calling drawWindow for each
+
+// Market projection functions
+calculateNextMarketProjections:
+    - For each item:
+        - Randomize projected price within range
+        - Set demand as constant
+        - Store supply range for future addition
+refreshMarket:
+    - For each item:
+        - Update current price to projected price
+        - Add supply batch to current supply
+    - Recalculate next projections
+
+// Utility functions
+- formatTime: convert seconds to MM:SS string
+- findWindowIndexByName: locate window in openWindows list
+- bringToFront: move specified window to top of stack
+- getWindowDimensions: compute width and height based on content
+- calculateColumnWidths: determine maximum width needed for each column based on content
+- calculateBriefcaseWidth: determine width of inventory window dynamically
+- getWindowTitle: return window title based on app name

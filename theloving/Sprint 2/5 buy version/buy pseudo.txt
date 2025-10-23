@@ -1,0 +1,69 @@
+Initialize variables:
+  - Window sizes, positions, game state, timer, inventory, market data
+  - UI elements: buttons, icons, fonts, images
+  - Market data structure with base info (price, supply, demand ranges)
+  - Dynamic market data and shopping cart
+
+On game load:
+  - Set background color
+  - Calculate initial market projections
+  - Initialize market data and inventory
+  - Set up UI fonts and icon positions
+  - Prepare selection buttons for game duration
+
+In update loop (per frame):
+  - If game is in "desktop" mode:
+    - Decrease timer and supply batch timer
+    - If supply batch timer hits zero:
+      - Refresh market: update prices, add supply
+      - Reset supply batch timer
+    - Handle window dragging if active
+
+On mouse press:
+  - If in "selection" mode:
+    - Check if duration buttons are clicked
+    - Start game timer and switch to "desktop" mode
+  - Else if in "desktop" mode:
+    - Check if icons are clicked:
+      - Open new window if icon clicked and not already open
+    - Check if existing window is clicked:
+      - Close window if close button clicked
+      - Start dragging if title bar clicked
+      - Bring window to front if front clicked
+      - Check for buy/sell button clicks inside specific windows
+        - Update shopping cart accordingly
+
+On mouse release:
+  - Stop dragging
+
+Draw function:
+  - If in "selection" mode:
+    - Draw background and duration selection buttons
+  - Else (desktop mode):
+    - Draw taskbar and icons
+    - Draw timer info
+    - Draw open windows
+      - For each window:
+        - Draw window body, title, close button
+        - Draw window content based on window type:
+          - Buy window: table with items, prices, supply, cart controls
+          - Network window: market data table with projections
+          - Briefcase: inventory and financial info
+
+Market functions:
+  - Calculate next prices, supply, demand (projected)
+  - Refresh market: update current prices, supply, calculate new projections
+  - Calculate player's net worth based on inventory and cash
+  - Calculate dynamic column widths for tables
+  - For buy window:
+    - Draw table headers and rows
+    - Draw item data and buy/sell adjustment buttons
+    - Calculate total transaction cost and enable/disable buy button accordingly
+    - Handle cart transactions on buy button click
+
+Utility functions:
+  - Format time into MM:SS
+  - Find window by name
+  - Bring window to front
+  - Get window dimensions based on content
+  - Center text or elements
