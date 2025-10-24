@@ -2,7 +2,7 @@ Sprint 2
 
 # Additional Ideas (Overflow)
 - Implement automation or business management features, allowing players to set up passive income streams. (Maybe be added into Briefcase)
-- Incorporate detailed graphs and analytics for better strategic insight.
+- Incorporate detailed graphs and analytics for better strategic insight
 - Pause game / save game
 - Crash Game handling
 - leaderboard
@@ -110,22 +110,51 @@ After implementing the item shop and expanding the network app, I will shift my 
 - Still implementing the probability sell but on a refresh rate of every 5 seconds
 - Kinda annoyed how I have to click on the title bar (remember the window bug)
 
-I have just created the buy version, and that was probably the hardest part to do since I had to figure out how to style it and also its logic. I also kept getting confused by my own code, but it was later resolved by re-following my pseudo code. 
+I have just created the buy version, and that was probably the hardest part to do since I had to figure out how to style it and also its logic.  
+I also kept getting confused by my own code, but it was later resolved by re-following my pseudocode.  
 
-I do not want to touch my program if it works — it works. It might not be the tidiest anymore, and I may have changed too much stuff. But again, if it works it works. (There might be some font text error, I cannot be bothered to check all of it.)
+I do not want to touch my program if it works - it works.  
+It might not be the tidiest anymore, and I may have changed too much stuff. But again, if it works, it works.  
+(There might be some font text errors, but I cannot be bothered to check all of it.)
 
-Theres a bug, on top window bug, I may have tweak the logic to much and maybe have broke the logic, I have tested and rexamine the code, I have changed quite a few within the buy and sell version, and a working window would be briefcase version and below. I did some comparrison, between the 2 codes where that there was a implementation of new padding and I think my z cords were getting confused, I have fix the window click logic love.mousepressed 
+There's a bug, specifically the top window bug.  
+I may have tweaked the logic too much and possibly broke it.  
+I have tested and re-examined the code, and I’ve changed quite a few things within the buy and sell versions.  
+A working window would be the briefcase version and below.  
 
-Clicking a title bar immediately brings that window to the front AND starts the drag instantly.
+I did some comparison between the two codes, especially where there was an implementation of new padding, and I think my Z-ordering got confused.  
+I have fixed the window click logic in love.mousepressed:  
 
-Clicking the window body (including buttons) brings that window to the front to handle the action.
-
-I have also included the display fixes for the Network window you requested in the previous step.
+- Clicking a title bar immediately brings that window to the front AND starts the drag instantly.  
+- Clicking the window body (including buttons) brings that window to the front to handle the action.
 
 **NOTE** Also fixed the anoyance of clicking the title bar
 
-after making the first ever working game
-I tried to work on the second version of selling game
-and I tried to make the windows very adaptable on the tables and I think I ended up messing up something. Because Ive been replacing and remaking and replace parts of the code to fit perfectly without changing much of the variables.
+After making the first ever working game, I tried to work on the second version of the selling game.  
+I aimed to make the windows very adaptable on the tables, but I think I ended up messing up something.  
+Because I kept replacing and remaking parts of the code to make everything fit perfectly without changing many variables.  
 
-I give up, I cant get to fix it, I have done to much stuff so il over flow the sell version 2 to the next sprint and work on the menu and save, since I have already fix the bugs of window disapearing and window active.
+I give up. I can't fix it.  
+I've done too much, so I'll overflow the sell version 2 to the next sprint and focus on the menu and save features.  
+Since I already fixed the bugs related to window disappearing and window active states.
+
+| Test ID | Feature Tested | Description | Expected Result | Actual Result | Status |
+| :---: | :--- | :--- | :--- | :--- | :---: |
+| **T01** | **Player Money Init** | Verify `currentMoney` is set to the default value at startup. | `currentMoney` must equal the value of `defaultStartingMoney` (`500`). | `currentMoney` is correctly initialized. | **PASS** |
+| **T02** | **Initial Game State** | Verify the game starts on the correct configuration screen. | `gameState` must be initialized to `"selection"`. | `gameState` is set to `"selection"`. | **PASS** |
+| **T03** | **Market Timer Config** | Verify the market supply update timer is correctly set up. | `batchTimer` must be set to `supplyBatchInterval` (`60`). | `batchTimer` is correctly set to 60 seconds. | **PASS** |
+| **T04** | **Window Drawing Loop** | Verify all windows in the `openWindows` array are iterated over and drawn. | The `for i, win in ipairs(openWindows)` loop successfully calls `drawWindow(win)` for every element. | All open windows are visible and rendering correctly. | **PASS** |
+| **T05** | **Icon Drawing Group** | Verify all four desktop icons (My Computer, Networking, Inbox, Briefcase) are drawn. | All icon images are visible and centered using the half-width offset (`iconw/2`). | All four configured icons appear on the desktop. | **PASS** |
+| **T06** | **Failure Message Check** | Verify the message is only drawn when its content is non-empty. | The `if failureMessage ~= "" then` block successfully gates the drawing logic. | Message is drawn when needed, and skipped when `failureMessage` is `""`. | **PASS** |
+| **T07** | **Message Positioning** | Verify the `failureMessage` and its background box are positioned 10px from the right edge. | The calculation `msgX = wln - msgW - 10` is accurate for bottom-right taskbar positioning. | Message appears correctly anchored to the bottom-right. | **PASS** |
+| **T08** | **Message Background** | Verify the background box for the message uses the correct transparency setting. | `love.graphics.setColor(0, 0, 0, 0.8)` is applied for a semi-transparent black background. | The message background has 80% black opacity. | **PASS** |
+
+## Over flows
+- Incorporate detailed graphs and analytics for better strategic insight
+- Pause game / save game
+- Crash Game handling
+- leaderboard
+- toturial
+- Sell 2 version
+
+(I amd disincluding taxes)

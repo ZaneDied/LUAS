@@ -1,0 +1,73 @@
+// Initialize global variables for UI layout, game state, market data, inventory, and windows
+
+// Define constants for window sizes, colors, fonts, item data, and timers
+
+// Load function:
+    - Set background color
+    - Get window dimensions
+    - Initialize market data based on itemBaseData
+    - Initialize inventory and money
+    - Calculate initial market projections
+    - Set up UI elements (buttons, icons, fonts, positions)
+
+// Update function:
+    - If game is in "desktop" state:
+        - Decrease main timer; switch state if time runs out
+        - Decrease supply batch timer; refresh market when timer hits zero
+        - Decrease sell cycle timer; process automatic selling when timer hits zero
+        - Decrease message display timer
+        - Handle window dragging if active
+
+// Mouse pressed:
+    - If in "selection" state:
+        - Check if a timer button is clicked; start game timer
+    - Else if in "desktop" state:
+        - Check for icon clicks:
+            - If icon clicked and window not open, open new window with staggered position
+        - Check for window interactions:
+            - If click on window close button, close window
+            - If click on window title bar, start dragging
+            - If click on window content:
+                - For "buy" window:
+                    - Check for "Buy" buttons; adjust shopping cart accordingly
+                    - Check for "Final Buy" button; execute transaction
+                - For "network" window:
+                    - Check switches; toggle sell switch
+                - Bring clicked window to front
+
+// Mouse released:
+    - Stop dragging
+
+// Draw functions:
+    - If in "selection" mode:
+        - Draw background, title, and timer buttons
+    - Else ("desktop" mode):
+        - Draw taskbar and icons
+        - Draw game timers
+        - Draw open windows:
+            - For each window, draw window frame, title bar, close button, and content based on window type
+                - For "buy" window:
+                    - Draw header row
+                    - For each market item: draw item info, projected price (color-coded), demand, supply, and adjustment buttons
+                    - Draw total cost and "Buy Items" button
+                - For "sell" window:
+                    - Draw inventory and market prices
+                    - Draw switches for selling
+                - For "network" window:
+                    - Draw inventory and projected prices
+                - For "briefcase":
+                    - Draw inventory and financial summary
+        - Draw failure messages in bottom right
+
+// Utility functions:
+    - Calculate next market projections (price, demand, supply)
+    - Refresh market data (apply projections, generate new supply)
+    - Execute cart transaction (validate, buy/sell, update inventory and money)
+    - Calculate total net worth
+    - Find window index by name
+    - Bring window to front
+    - Format timers
+    - Calculate window dimensions based on content
+    - Draw window frame and title bar
+    - Draw specific window contents (buy, sell, network, briefcase)
+    - Process automatic selling based on demand and switches

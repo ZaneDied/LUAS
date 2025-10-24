@@ -1,0 +1,115 @@
+// Initialization of global variables for UI layout, timers, game state, inventory, and windows
+// Define constants for window sizes, colors, fonts, item data, and timers
+
+// Load Function:
+    - Set background color
+    - Retrieve window dimensions
+    - Initialize market data based on static itemBaseData
+    - Initialize inventory with starting items
+    - Set initial timers for game countdown, market supply, and sell cycle
+    - Load fonts, images, and UI element positions
+    - Set game state to "selection"
+
+// Update Function:
+    - If in "desktop" state:
+        - Decrease main timer; if zero, trigger endgame:
+            - Calculate final stats
+            - Open "report" window with size from getWindowDimensions
+            - Exit update
+        - Decrease supply batch timer; if zero, refresh market and reset timer
+        - Decrease sell timer; if zero, run auto-sell logic and reset timer
+        - Decrease message display timer; clear message if timer ends
+        - Handle window dragging if active
+    - Else if in "endgame" state:
+        - (Optional) handle endgame specific logic
+
+// MousePressed Function:
+    - If in "selection" mode:
+        - Check if a timer button clicked
+            - If clicked, set game countdown timer and switch to "desktop" mode
+    - Else if in "desktop" mode:
+        - Check if main menu button clicked:
+            - Toggle menu visibility
+            - Calculate menu position
+            - Exit
+        - If menu is open:
+            - For each menu button:
+                - If clicked, perform associated action:
+                    - "end": set game timer to 5 seconds
+                    - "restart": call resetGame()
+                    - "info": open "info" window if not already open
+                    - "continue": do nothing
+            - Close menu after click
+            - Exit
+        - If menu is not open:
+            - Check icon clicks (buy, sell, network, briefcase):
+                - If icon clicked and window not already open:
+                    - Create window at centered position with offset based on staggerCount
+                    - Add window to openWindows list
+                    - Increment staggerCount
+                    - Exit
+            - Check open windows from top to bottom:
+                - For each window:
+                    - Check if close button clicked; if yes, remove window
+                    - Check if title bar clicked; if yes, start dragging
+                    - Check if inside window body:
+                        - Bring window to front
+                        - If window is "mycomp" (buy window):
+                            - Check if "Buy" button clicked; execute transaction
+                            - Check adjustment buttons; modify shoppingCart
+                        - If window is "network" (sell window):
+                            - Check switches; toggle sell switches for items
+                        - Else, bring to front and continue
+    - If mouse released:
+        - Stop dragging
+
+// Draw Function:
+    - If in "selection":
+        - Draw background with options buttons for game duration
+        - Highlight selected button
+    - Else if in "desktop" or "endgame":
+        - Draw taskbar at bottom
+        - Draw start button with 3D bevel effect
+        - If in "desktop" and game is active:
+            - Draw timers: time left, next supply batch, open sell countdown
+        - Draw desktop icons and labels:
+            - "Buy" icon
+            - "Sell" icon
+            - "Network" icon
+            - "Briefcase" icon
+        - For each open window:
+            - Draw window frame with title bar
+            - Draw close button
+            - Draw window content based on window type:
+                - "mycomp": draw buy window content
+                - "network": draw sell window content
+                - "inbox": draw network report
+                - "briefcase": draw inventory & finance
+                - "info": draw help & info
+                - "report": draw final stats report
+        - If menu is open:
+            - Call drawMenu() to render menu overlay
+        - If failure message exists:
+            - Draw message box at bottom right with message text
+
+// drawMenu():
+    - If menu is not open, return
+    - Draw menu background rectangle
+    - For each option ("End", "Restart", "Info", "Continue"):
+        - Draw button rectangle
+        - Draw centered text
+
+// In window drawing functions:
+    - Draw window background, title bar, close button, border
+    - Draw window title
+    - Call specific content drawing function based on window type:
+        - drawBuyWindowContent()
+        - drawSellWindowContent()
+        - drawNetworkWindowContent()
+        - drawBriefcaseWindowContent()
+        - drawEndGameScreen()
+
+// drawEndGameScreen():
+    - Draw final report text with stats
+    - Draw a simple bar chart representing buy/sell volume ratios
+

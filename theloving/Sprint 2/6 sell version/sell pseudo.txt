@@ -1,0 +1,97 @@
+Initialize variables:
+  - Window and UI properties
+  - Game state (selection or desktop)
+  - Market data and inventory
+  - UI elements and positions
+  - Market fluctuation parameters
+  - Player's money and log
+
+On game load:
+  - Set background color
+  - Initialize market data for each item:
+      * Set current price to min range
+      * Set supply to 0
+      * Store supply range for future updates
+  - Initialize inventory (start with Pen)
+  - Set starting money
+  - Calculate initial market projections
+  - Setup UI fonts and positions
+
+On each update (dt):
+  - If message is active, decrease its timer
+  - If in game timer mode, decrease remaining time
+  - If market batch timer expires:
+      * Refresh market:
+          - Update current prices from projections
+          - Add new supply batch within range
+          - Recalculate projections
+  - Handle window dragging if active
+
+On mouse press:
+  - If in selection mode:
+      * Check if timer button clicked:
+          - Set game timer
+          - Switch to game (desktop) mode
+          - Initialize market
+  - Else (game mode):
+      * Check if icon clicked:
+          - If icon clicked and window not open:
+              - Open new window with offset
+      * Else check if clicking inside open window:
+          - Check close button:
+              - Close window
+          - Check title bar:
+              - Bring window to front
+              - Initiate dragging
+          - Check other buttons inside window:
+              - If buy/sell adjustment buttons clicked:
+                  - Update shopping cart
+              - If sell all button clicked:
+                  - Execute sale, update cash and supply
+
+On mouse release:
+  - Stop dragging
+
+Draw function:
+  - If in selection:
+      * Draw background and selection buttons
+  - Else (game mode):
+      * Draw taskbar and icons
+      * Draw timer info
+      * Draw desktop icons
+      * Draw all open windows
+      * Show failure message if any
+
+For each window:
+  - Draw window body, title, close button
+  - Draw content based on window type:
+      * Buy window:
+          - Draw item table, cart adjustment buttons, total, buy button
+      * Sell window:
+          - Draw inventory table, sell all buttons
+      * Network window:
+          - Draw market data table
+      * Briefcase window:
+          - Draw financial summary, inventory list
+
+Market refresh:
+  - For each item:
+      * Set current price to projected price
+      * Add supply batch within range
+  - Recalculate projections
+
+Transaction:
+  - Calculate total cost of cart
+  - Check if player can afford and supply is sufficient
+  - If valid:
+      * Update inventory, supply, and cash
+      * Show success message
+  - Else:
+      * Show failure message (not enough cash or supply)
+
+Utility functions:
+  - Format time
+  - Calculate next market prices/demand
+  - Calculate net worth
+  - Calculate window dimensions based on content
+  - Draw windows and content

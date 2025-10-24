@@ -1,0 +1,85 @@
+// Initialize global variables for layout, game state, timers, inventory, and UI elements
+
+// Variables for taskbar, icons, buttons, messages, and images
+
+// Data structures:
+    - openWindows: list of currently open window objects
+    - staggerCount: counter for window stacking offset
+    - gameState: "selection" or "desktop" or "endgame"
+    - timeRemaining: countdown timer in seconds
+    - timers for supply batch, sell cycle, message display
+    - itemBaseData: static info for items (price, supply, demand ranges)
+    - marketData: dynamic info for items (current/projection prices, supply)
+    - inventory: player's items
+    - networkLog: log for network activity
+    - itemSellSwitches: per-item ON/OFF switches for selling
+    - shoppingCart: items queued for purchase
+
+// Load:
+    - Set background color
+    - Load images, fonts, and UI positions
+    - Initialize marketData from itemBaseData with default values
+    - Initialize inventory with starting items
+    - Set initial timers for market updates and UI
+
+// Update:
+    - If in "desktop" mode:
+        - Decrease main countdown timer; trigger endgame when zero
+        - If timer hits zero:
+            - Calculate final stats
+            - Open final report window
+        - Decrease supply batch timer; refresh market when zero
+        - Decrease sell cycle timer; run automated sell logic when zero
+        - Decrease message display timer; clear message when done
+        - Handle window dragging if active
+    - Else if in "endgame" mode:
+        - (Optional) handle endgame logic
+
+// MousePressed:
+    - If in "selection" mode:
+        - Check if a timer button clicked; start game timer and switch to "desktop"
+    - Else in "desktop" mode:
+        - Check if icon clicked:
+            - If not dragging:
+                - For each icon (buy, sell, network, briefcase):
+                    - Check boundaries
+                    - If clicked and window not open:
+                        - Create a new window with staggered position
+                        - Add to openWindows
+        - Check open windows from top to bottom:
+            - For each window:
+                - Check if close button clicked; close window
+                - Check if title bar clicked; start dragging
+                - Check if inside window:
+                    - Bring to front
+                    - If "buy" window:
+                        - Check if "Buy" button clicked; execute transaction
+                        - Check if adjustment buttons clicked; update shoppingCart
+                    - If "network" window:
+                        - Check if switches clicked; toggle sell switches
+                    - Else, bring window to front and stop checking
+
+// MouseReleased:
+    - If dragging, stop dragging
+
+// Draw Window:
+    - Draw window background, title bar, close button, border
+    - Draw content based on window type:
+        - "mycomp": draw buy window content
+        - "network": draw sell window content
+        - "inbox": draw network log content
+        - "briefcase": draw inventory/finance
+        - "report": draw final endgame report
+
+// Draw:
+    - If in "selection" mode:
+        - Draw background and timer buttons for game duration selection
+    - Else ("desktop" or "endgame"):
+        - Draw taskbar
+        - Draw start button with 3D effect
+        - If game is running:
+            - Draw timers (time left, supply batch, open sell countdown)
+        - Draw desktop icons and labels
+        - Draw all open windows
+        - If message exists:
+            - Draw message box at bottom right

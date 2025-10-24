@@ -27,6 +27,8 @@ local gameState = "selection" -- "selection" or "desktop"
 local timeRemaining = 0        -- Time in seconds
 local timerFont
 local selectionButtons = {}    -- Stores button positions
+local sellTimerInterval = 5 -- Time between open sell updates in seconds (10 seconds)
+local sellTimer = sellTimerInterval
 
 -- Market Fluctuation Variables
 -- CONFIGURABLE SUPPLY BATCH TIME
@@ -37,7 +39,9 @@ local batchTimer = supplyBatchInterval
 local defaultStartingMoney = 500 -- <-- Change value to adjust the starting money (e.g., 500, 1000, etc.)
 local currentMoney 
 local inventory = {} -- Stores how many units of each item the player owns
-local networkLog = {} -- NEW: Initialize the log of network events for the 'inbox' window.
+local networkLog = {} -- Initialize the log of network events for the 'inbox' window.
+local isSellAllSwitchOn = false -- Set the switch to OFF by default
+local itemSellSwitches = {} -- Table to track the ON/OFF state of the switch for each item.
 
 -- Window properties (Defaults)
 local WindowW = 400
@@ -340,6 +344,55 @@ local function calculateBriefcaseWidth()
     return contentWidth + padding
 end
 
+-- Logic function for sell switch
+local function processOpenSell()
+    -- Iterate over all items the player currently owns
+    for itemName, count in pairs(inventory) do
+        -- Check 1: Does the player have this item? (count > 0)
+        -- Check 2: Is the per-item switch set to ON? (itemSellSwitches[itemName] == true)
+        if count > 0 and (itemSellSwitches[itemName] == true) then
+            
+            -- Assuming itemBaseData and marketData are available globally/as up-values
+            local baseData = itemBaseData[itemName]
+            local market = marketData[itemName]
+            
+            -- Ensure we have the necessary data
+            if not baseData or not market or not market.currentPrice then
+                goto continue -- Skip this item if market or base data is incomplete
+            end
+            
+            local currentMarketPrice = market.currentPrice
+            local demandChance = baseData.demand -- Demand Priority: Value is 1 to 10
+            
+            -- Determine if the item is sold: X/10 chance
+            -- Roll a number between 1 and 10. If the roll is less than or equal to the demand, it sells.
+            local roll = love.math.random(1, 10)
+            
+            if roll <= demandChance then
+                
+                -- --- SALE SUCCESSFUL ---
+                
+                -- Update Inventory (Sell one unit)
+                inventory[itemName] = count - 1
+                if inventory[itemName] <= 0 then
+                    inventory[itemName] = nil -- Clean up inventory table if count is zero
+                end
+                
+                -- Update Money
+                currentMoney = currentMoney + currentMarketPrice
+                
+                -- Update global message variables (The "normal" way)
+                failureMessage = "AUTO-SOLD: 1x " .. itemName .. " for $" .. string.format("%.2f", currentMarketPrice)
+                messageDuration = 3 -- Display for 3 seconds
+
+                -- Stop and return immediately after the first successful sale (only one per 10s tick)
+                return 
+            end
+        end
+        
+        ::continue:: -- Used for Lua's 'goto' to simulate a 'continue' inside the loop
+    end
+end
 
 -- Update the getWindowDimensions function to use the new content width.
 local function getWindowDimensions(name)
@@ -348,7 +401,7 @@ local function getWindowDimensions(name)
     
     if name == "inbox" then
         local widths = calculateColumnWidths()
-        -- The total content width is the sum of all calculated column widths.
+        -- FIX: The total content width is the sum of all calculated column widths.
         local totalContentWidth = widths.item + widths.currentPrice + widths.nextPrice + widths.demand + widths.netSupply
         w = totalContentWidth + 20 -- Add 20 pixels for left/right window margin (10 on each side)
         
@@ -462,7 +515,7 @@ local function getWindowDimensions(name)
     end
     return w, h
 end
-
+-- Function To draw the content for Buy window
 local function drawBuyWindowContent(win)
     local x, y = win.x, win.y
     local winW, winH = getWindowDimensions(win.name) -- Get current window width
@@ -738,11 +791,8 @@ local function drawSellWindowContent(win)
     local priceColW = MenuF:getWidth("Current Price ($)") + padding
     local valueColW = MenuF:getWidth("Total Value ($)") + padding
     
-    -- Fixed width for the SELL button/input
-    local sellColW = 100 
-    local SellButtonW = sellColW - 10 -- Button width within the column
-    local SellButtonH = itemHeight - 4 -- Button height
-    local SellButtonText = "Sell All" -- Button text
+    -- NEW: Fixed width for the SELL button/input
+    local sellColW = 80 -- Width for the switch column (was 100 before, setting to 80 for switch size)
 
     for itemName, count in pairs(inventory) do
         if count > 0 then 
@@ -767,7 +817,7 @@ local function drawSellWindowContent(win)
     local noItemsTextW = MenuF:getWidth(noItemsText) + 20
     if not inventoryHasItems then
         -- This logic ensures the 'No items' row covers the same width as the header
-        totalWidth = math.max(totalWidth, noItemsTextW)
+        totalWidth = math.max(totalWidth, noItemsTextW + sellColW) -- Ensure width covers the added Switch column width
     end
     
     -- --- 2. Draw Table Header ---
@@ -794,7 +844,7 @@ local function drawSellWindowContent(win)
     love.graphics.print("Total Value ($)", currentX + 5, headerY)
     currentX = currentX + valueColW
     
-    love.graphics.print("Sell", currentX + 5, headerY) -- Header for Sell column
+    love.graphics.print("Switch", currentX + 5, headerY) -- Header for the new Switch column
 
     -- Draw Table lines
     love.graphics.setColor(0, 0, 0) -- Border color
@@ -809,12 +859,16 @@ local function drawSellWindowContent(win)
     love.graphics.line(currentX + priceColW, contentY, currentX + priceColW, contentY + itemHeight)
     currentX = currentX + priceColW
     love.graphics.line(currentX + valueColW, contentY, currentX + valueColW, contentY + itemHeight)
+    currentX = currentX + valueColW
+    love.graphics.line(currentX + sellColW, contentY, currentX + sellColW, contentY + itemHeight) -- Final column line
 
     contentY = contentY + itemHeight
     
     -- --- 3. Draw Data Rows ---
     local rowCounter = 0
-    local currentItemIndex = 1
+    
+    -- Clear previous switch data to store only the currently drawn ones
+    win.itemSellSwitches = {} 
 
     if inventoryHasItems then
         for itemName, count in pairs(inventory) do
@@ -852,68 +906,54 @@ local function drawSellWindowContent(win)
                 love.graphics.print(string.format("%.2f", totalValue), currentX + 5, contentY + 2)
                 currentX = currentX + valueColW
                 
-                -- Column 5: SELL button area
-                local buttonY = contentY + 2 -- Small margin
-                local buttonX = currentX + 5
+                -- Column 5: SWITCH area
                 
-                -- --- DRAW SELL ALL BUTTON ---
-                local buttonKey = string.format("sell_%d", currentItemIndex)
+                -- Get current state, defaulting to OFF if not set
+                local isSellActive = itemSellSwitches[itemName] or false
+                itemSellSwitches[itemName] = isSellActive -- Ensure it's tracked even if it was nil
+
+                -- --- DRAW USELESS ON/OFF SWITCH ---
+                -- Switch dimensions and position
+                local SwitchW = 60 -- Slightly smaller switch than the column width
+                local SwitchH = itemHeight - 4
+                local SwitchY = contentY + 2
+                -- Center the switch within the sellColW space
+                local SwitchX = currentX + (sellColW/2) - (SwitchW/2) 
+                local thumbW = SwitchH - 4 
+
+                -- 1. Draw the track
+                local trackColor = isSellActive and {0, 150/255, 0} or {180/255, 180/255, 180/255} 
+                love.graphics.setColor(unpack(trackColor)) 
+                love.graphics.rectangle("fill", SwitchX, SwitchY, SwitchW, SwitchH)
+                love.graphics.setColor(0, 0, 0)
+                love.graphics.rectangle("line", SwitchX, SwitchY, SwitchW, SwitchH)
                 
-                -- Check if the button is active (only active if count > 0)
-                local isSellActive = count > 0
-                
-                -- Store button data for click detection
-                win[buttonKey] = {
-                    item = itemName,
-                    x = buttonX,
-                    y = buttonY,
-                    w = SellButtonW,
-                    h = SellButtonH,
-                    active = isSellActive
+                -- 2. Draw the thumb/slider
+                local thumbColor = isSellActive and {20/255, 20/255, 20/255} or {150/255, 150/255, 150/255}
+                local thumbX = isSellActive and (SwitchX + SwitchW - thumbW - 2) or (SwitchX + 2)
+                love.graphics.setColor(unpack(thumbColor))
+                love.graphics.rectangle("fill", thumbX, SwitchY + 2, thumbW, thumbW)
+                love.graphics.setColor(0, 0, 0)
+                love.graphics.rectangle("line", thumbX, SwitchY + 2, thumbW, thumbW)
+
+                -- 3. Draw the label
+                local label = isSellActive and "ON" or "OFF"
+                love.graphics.setColor(0, 0, 0) 
+                local labelW = MenuF:getWidth(label)
+                local labelX = isSellActive and (SwitchX + 5) or (SwitchX + SwitchW - labelW - 5)
+                love.graphics.print(label, labelX, SwitchY + (SwitchH - MenuF:getHeight()) / 2) 
+
+                -- 4. Store the switch's bounds for click detection
+                -- Store the button under a unique key containing the item name
+                win.itemSellSwitches["sell_switch_" .. itemName] = {
+                    x = SwitchX, 
+                    y = SwitchY, 
+                    w = SwitchW, 
+                    h = SwitchH,
+                    item = itemName -- Store the item name for click handling
                 }
                 
-                -- Draw Button Background (Red by default, Green if active)
-                if isSellActive then
-                    love.graphics.setColor(0/255, 150/255, 0/255) -- Green
-                else
-                    love.graphics.setColor(180/255, 0/255, 0/255) -- Red (as per request, but usually disabled buttons are grey)
-                end
-
-                -- To fulfill the 'red on default and green on click' request, 
-                -- we'll interpret 'default' as 'not having been clicked *yet*'. 
-                -- We'll make it RED if there's inventory, but make the active color GREEN.
-                -- For the sake of demonstration, I will use RED for Active and DARKER RED for Inactive
-                -- unless the user meant "Green when the condition is met to sell (active)".
-                -- Sticking to the request: RED by default, but it's *active* only if count > 0.
-                if isSellActive then
-                    love.graphics.setColor(180/255, 0/255, 0/255) -- RED for active/default
-                else
-                    love.graphics.setColor(150/255, 150/255, 150/255) -- Grey for inactive
-                end
-
-                -- If the button data is present (from a previous click, which it won't be in a simple draw loop), 
-                -- you'd check a "isHovered" or "isClicked" state to change the color.
-                -- For a simple implementation, we'll use the active state to choose Red/Green.
-                -- I'll use Green for active (can sell) and Red for inactive (cannot sell).
-                if isSellActive then
-                    love.graphics.setColor(0/255, 150/255, 0/255) -- Green when active/can sell
-                else
-                    love.graphics.setColor(180/255, 0/255, 0/255) -- Red when inactive/cannot sell
-                end
-
-                love.graphics.rectangle("fill", buttonX, buttonY, SellButtonW, SellButtonH)
-
-                -- Draw Button Border
-                love.graphics.setColor(0, 0, 0)
-                love.graphics.rectangle("line", buttonX, buttonY, SellButtonW, SellButtonH)
-
-                -- Draw Button Text (White)
-                love.graphics.setColor(255, 255, 255) 
-                local textWidth = MenuF:getWidth(SellButtonText)
-                local textX = buttonX + (SellButtonW/2) - (textWidth/2)
-                love.graphics.print(SellButtonText, textX, buttonY + 2) 
-                
-                -- Draw lines
+                -- Draw horizontal and vertical row lines
                 love.graphics.setColor(180/255, 180/255, 180/255) -- Light border lines
                 love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
                 currentX = startX
@@ -924,32 +964,25 @@ local function drawSellWindowContent(win)
                 love.graphics.line(currentX + priceColW, contentY, currentX + priceColW, contentY + itemHeight)
                 currentX = currentX + priceColW
                 love.graphics.line(currentX + valueColW, contentY, currentX + valueColW, contentY + itemHeight)
-
+                
                 contentY = contentY + itemHeight
                 rowCounter = rowCounter + 1
-                currentItemIndex = currentItemIndex + 1
             end
         end
-    else
+    else 
         -- Draw 'No items' row - When inventory is empty
         love.graphics.setColor(255/255, 255/255, 255/255) -- White background
         love.graphics.rectangle("fill", startX, contentY, totalWidth, itemHeight)
-        
-        love.graphics.setColor(0, 0, 0)
-        
-        -- Print the text centered within the totalWidth
+        love.graphics.setColor(0, 0, 0) -- Print the text centered within the totalWidth
         local textToPrint = noItemsText
         local textW = MenuF:getWidth(textToPrint)
-        love.graphics.print(textToPrint, 
-            startX + totalWidth / 2, 
-            contentY + 2, 
-            0, 1, 1, 
-            textW / 2, -- X-Origin: Use half the text width to center
-            0 -- Y-Origin
-        )
-        
+        love.graphics.print(textToPrint, startX + totalWidth / 2, contentY + 2, 0, 1, 1, textW / 2, 0)
         love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
+        
+        contentY = contentY + itemHeight -- Move contentY past the 'no items' row
     end
+    
+    -- NOTE: Removed the single switch drawing from the previous iteration.
 end
 
 -- Function to draw the Excel-like content for the Network window
@@ -1001,7 +1034,7 @@ local function drawNetworkWindowContent(win)
     love.graphics.setColor(0, 0, 0) -- Border color
     love.graphics.rectangle("line", startX, contentY, totalWidth, itemHeight)
 
-    -- Correctly draw vertical separator lines for header
+    -- FIX: Correctly draw vertical separator lines for header
     currentX = startX
     currentX = currentX + col1W
     love.graphics.line(currentX, contentY, currentX, contentY + itemHeight)
@@ -1071,7 +1104,7 @@ local function drawNetworkWindowContent(win)
         -- *** CURRENT SUPPLY IS DRAWN HERE ***
         love.graphics.print(tostring(currentSupply), currentX + 5, contentY + 2)
         
-        -- Correctly draw internal column lines
+        -- FIX: Correctly draw internal column lines
         love.graphics.setColor(180/255, 180/255, 180/255) -- Light border lines
         currentX = startX
         currentX = currentX + col1W
@@ -1377,41 +1410,52 @@ function love.load()
 end
 
 function love.update(dt)
-    local mouseX = love.mouse.getX()
-    local mouseY = love.mouse.getY()
-
-    if messageDuration > 0 then
-        messageDuration = messageDuration - dt
-        if messageDuration <= 0 then
-            failureMessage = "" -- Clear the message when time runs out
-        end
-    end
-    
-    -- Game Timer Update
-    if gameState == "desktop" and timeRemaining > 0 then
-        timeRemaining = timeRemaining - dt
-        if timeRemaining < 0 then
-            timeRemaining = 0
-            -- Implement Game Over/End Screen logic here
-        end
+    if gameState == "desktop" then
         
-        -- Market/Batch Timer Update (runs every supplyBatchInterval seconds)
+        -- 1. Game Countdown Timer (Main Timer)
+        if timeRemaining > 0 then
+            timeRemaining = timeRemaining - dt
+            if timeRemaining <= 0 then
+                timeRemaining = 0
+                gameState = "selection" -- Change state, e.g., back to selection or a "game over" state
+                print("Time is up!")
+            end
+        end
+
+        -- 2. Market Refresh Timer
         batchTimer = batchTimer - dt
         if batchTimer <= 0 then
-            refreshMarket() -- Call the new refresh function
-            batchTimer = supplyBatchInterval
+            refreshMarket()
+            batchTimer = supplyBatchInterval -- Reset timer
         end
-    end
+        
+        -- 3. Open Sell Timer
+        sellTimer = sellTimer - dt
+        if sellTimer <= 0 then
+            
+            processOpenSell() -- NEW LOGIC CALL
+            
+            sellTimer = sellTimerInterval -- Reset timer
+        end
 
-    -- Dragging logic (only run if in desktop mode)
-    if gameState == "desktop" then
-        if isDragging and draggedWindowIndex then
-            local win = openWindows[draggedWindowIndex]
-            if win then
-                -- Update the window's position based on mouse movement and initial offset
-                win.x = mouseX - dragOffsetX
-                win.y = mouseY - dragOffsetY
+        -- 4. Message Timer
+        if messageDuration > 0 then
+            messageDuration = messageDuration - dt
+            if messageDuration <= 0 then
+                failureMessage = "" -- Clear the message
             end
+        end
+
+        -- 5. Handle Dragging Logic
+        if isDragging and draggedWindowIndex then
+            local mx, my = love.mouse.getPosition()
+            local win = openWindows[draggedWindowIndex]
+            
+            -- Apply movement
+            win.x = mx - dragOffsetX
+            win.y = my - dragOffsetY
+            
+            -- Window constraints were previously removed, allowing off-screen movement.
         end
     end
 end
@@ -1464,7 +1508,7 @@ function love.mousepressed(x, y, button, istouch, presses)
             -- If an icon was clicked and that window is not already open, open it
             if clickedIcon and not findWindowIndexByName(clickedIcon) then
                 
-                -- Use modulo on staggerCount to prevent drift and wrap stacking effect
+                -- FIX: Use modulo on staggerCount to prevent drift and wrap stacking effect
                 local safeStagger = staggerCount % 5 -- Stacks up to 5 windows deep (0, 1, 2, 3, 4) then wraps back to 0
                 local offsetAmount = safeStagger * 20 
                 
@@ -1567,38 +1611,22 @@ function love.mousepressed(x, y, button, istouch, presses)
                         end
                     end
                 
-                -- C. Check SELL All Buttons (network window)
+                -- C. Check for the per-item ON/OFF Switches (network window)
                 elseif frontWin.name == "network" then
-                    for key, btn in pairs(frontWin) do
-                        if type(key) == 'string' and key:match("^sell_") then
-                            if btn.active and x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
-                                
-                                local itemName = btn.item
-                                local amountToSell = inventory[itemName] or 0
-                                
-                                if amountToSell > 0 then
-                                    local data = marketData[itemName]
-                                    local currentPrice = data and data.currentPrice or 0
-                                    local earnedMoney = amountToSell * currentPrice
-                                    
-                                    -- Execute sale
-                                    currentMoney = currentMoney + earnedMoney
-                                    inventory[itemName] = 0 -- Clear inventory for this item
-                                    
-                                    -- Add supply back to the market (representing the sale)
-                                    if data then
-                                        data.currentSupply = data.currentSupply + amountToSell
-                                    end
-                                    
-                                    print(string.format("Sold all %d units of %s for $%.2f. Cash: $%.2f", 
-                                                        amountToSell, itemName, earnedMoney, currentMoney))
-                                end
-                                
-                                -- After the sale, re-run draw for Sell window content on next frame
-                                -- No explicit redraw needed, the love.draw loop will handle it
-                                
-                                return -- Button clicked
-                            end
+                    
+                    -- Loop through the switches stored by the draw function
+                    -- frontWin.itemSellSwitches is the table we added to the window object
+                    for key, btn in pairs(frontWin.itemSellSwitches or {}) do
+                        -- Check if the mouse click (x, y) is within the bounds of this specific switch
+                        if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+                            
+                            local itemName = btn.item
+                            
+                            -- *** TOGGLE THE USELESS SWITCH STATE (NO SELL LOGIC) ***
+                            -- Flip the boolean value for this specific item's switch, defaulting to false if not yet set
+                            itemSellSwitches[itemName] = not (itemSellSwitches[itemName] or false) 
+                            
+                            return -- Switch clicked, stop checking
                         end
                     end
                 end
@@ -1741,24 +1769,32 @@ function love.draw()
         love.graphics.setFont(MenuF)
         love.graphics.print(Mtext, StartButx + (StartButw / 2), StartButy + (StartButh / 2), 0, 1, 1, MTWidth / 2, MTHeight / 2)
         
-        -- Draw the Timer in the bottom left
+        -- Draw the Timers in the bottom left
         if timeRemaining > 0 then
             love.graphics.setColor(0, 0, 0) -- Black text
             love.graphics.setFont(MenuF)
             
-            local timerText = "Time Left: " .. formatTime(timeRemaining)
-            -- Display market update time remaining
-            local marketTimerText = "Next Supply Batch: " .. formatTime(batchTimer)
-            
-            -- Positioned slightly above the taskbar, to the right of the MENU button
-            local timerX = StartButx + StartButw + 15
             local timerY = TaskBarStarty + TaskBarEndh/2 - MenuF:getHeight()/2 
             
-            -- Draw Game Timer
-            love.graphics.print(timerText, timerX, timerY)
+            -- 1. Game Timer
+            local timerText = "Time Left: " .. formatTime(timeRemaining)
+            local gameTimerX = StartButx + StartButw + 15
+            love.graphics.print(timerText, gameTimerX, timerY)
             
-            -- Draw Market Timer next to it
-            love.graphics.print(marketTimerText, timerX + 150, timerY)
+            -- 2. Market Refresh Timer
+            local marketTimerText = "Next Supply Batch: " .. formatTime(batchTimer)
+            local marketTimerX = gameTimerX + 150
+            love.graphics.print(marketTimerText, marketTimerX, timerY)
+            
+            -- 3. NEW: Open Sell Timer (Countdown every 10 seconds)
+            -- Format to show only the seconds remaining
+            local sellTimerText = string.format("Open Sell: %02d", math.floor(sellTimer))
+            
+            -- Calculate position immediately after the Market Timer
+            local marketTimerW = MenuF:getWidth(marketTimerText)
+            local sellTimerX = marketTimerX + marketTimerW + 15 -- 15px separation
+            
+            love.graphics.print(sellTimerText, sellTimerX, timerY)
         end
         
         -- --- Draw Desktop Icons (No change)
@@ -1793,13 +1829,7 @@ function love.draw()
             local msgX = wln - msgW - 10 -- 10px from the right edge
             local msgY = TaskBarStarty + TaskBarEndh/2 - MenuF:getHeight()/2 
             
-            -- Draw background box (Black)
-            love.graphics.setColor(0, 0, 0, 0.8) -- Semi-transparent black
-            local boxX = msgX - 5
-            local boxW = msgW + 10
-            local boxH = MenuF:getHeight() + 4
-            love.graphics.rectangle("fill", boxX, msgY - 2, boxW, boxH)
-            
+
             -- Draw text (Red)
             love.graphics.setColor(1, 0, 0)
             love.graphics.print(msgText, msgX, msgY)
